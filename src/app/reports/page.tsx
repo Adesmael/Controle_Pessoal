@@ -7,13 +7,15 @@ import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -51,6 +53,63 @@ export default function ReportsPage() {
     }
     fetchAllTransactions();
   }, [toast]);
+
+  const handleExportToExcel = () => {
+    if (!allTransactions.length) {
+      toast({
+        title: 'Nenhuma transação',
+        description: 'Não há transações para exportar.',
+        variant: 'default'
+      });
+      return;
+    }
+
+    const dataToExport = allTransactions.map(transaction => ({
+      'Data': format(transaction.date, 'dd/MM/yyyy', { locale: ptBR }),
+      'Descrição': transaction.description,
+      'Tipo': transaction.type === 'income' ? 'Receita' : 'Despesa',
+      'Categoria/Fonte': transaction.type === 'expense' 
+        ? (EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
+        : (transaction.source || '-'),
+      'Valor': transaction.amount // Exportando como número para cálculos no Excel
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    // Definindo a largura das colunas (opcional, mas melhora a visualização)
+    worksheet['!cols'] = [
+      { wch: 12 }, // Data
+      { wch: 40 }, // Descrição
+      { wch: 10 }, // Tipo
+      { wch: 25 }, // Categoria/Fonte
+      { wch: 15 }  // Valor
+    ];
+
+
+    // Formatando a coluna de Valor como moeda BRL
+    // Nota: Esta formatação pode não ser universalmente aplicada por todos os leitores de Excel,
+    // mas é um padrão comum. O usuário pode precisar formatar manualmente em alguns casos.
+    dataToExport.forEach((_, index) => {
+      const cellRef = XLSX.utils.encode_cell({c: 4, r: index + 1}); // Coluna E (Valor), a partir da linha 2 (index + 1)
+      if(worksheet[cellRef]) { // Verifica se a célula existe
+         worksheet[cellRef].z = `"${CURRENCY_SYMBOL}" #,##0.00;[Red]-"${CURRENCY_SYMBOL}" #,##0.00`;
+         worksheet[cellRef].t = 'n'; // Garante que é tratado como número
+      }
+    });
+    
+    // Ajustando o cabeçalho para "Valor (R$)"
+    XLSX.utils.sheet_add_aoa(worksheet, [['Data', 'Descrição', 'Tipo', `Categoria/Fonte`, `Valor (${CURRENCY_SYMBOL})`]], { origin: 'A1' });
+
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transações');
+    XLSX.writeFile(workbook, 'transacoes_fluxo_financeiro.xlsx');
+
+    toast({
+      title: 'Exportação Concluída',
+      description: 'O arquivo transacoes_fluxo_financeiro.xlsx foi baixado.',
+    });
+  };
+
 
   if (!supabase) {
     return (
@@ -139,9 +198,15 @@ export default function ReportsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="font-headline text-xl">Todas as Transações</CardTitle>
-          <CardDescription>Uma lista completa de suas receitas e despesas registradas.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="font-headline text-xl">Todas as Transações</CardTitle>
+            <CardDescription>Uma lista completa de suas receitas e despesas registradas.</CardDescription>
+          </div>
+          <Button onClick={handleExportToExcel} variant="outline">
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Exportar para Excel
+          </Button>
         </CardHeader>
         <CardContent>
           {allTransactions.length > 0 ? (
@@ -193,3 +258,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+
