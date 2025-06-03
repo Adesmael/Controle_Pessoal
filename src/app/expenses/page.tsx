@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import ExpenseForm from '@/components/forms/ExpenseForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { Transaction } from '@/types';
+import type { Transaction, TransactionType } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
@@ -53,20 +53,20 @@ export default function ExpensesPage() {
       console.error('Erro ao buscar despesas:', error);
       toast({ title: 'Erro!', description: 'Não foi possível buscar as despesas.', variant: 'destructive' });
       setExpenses([]);
-    } else {
-      setExpenses(data.map(t => ({...t, date: new Date(t.date)})));
+    } else if (data) {
+      setExpenses(data.map(t => ({...t, date: new Date(t.date), type: t.type as TransactionType })));
     }
     setLoading(false);
   }
   
   const handleExpenseAdded = async (newExpenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
     if (!supabase) return;
+    setLoading(true);
     const expenseToInsert = {
-      // id: crypto.randomUUID(), // Supabase pode gerar UUID automaticamente se a coluna 'id' for configurada como tal e não for `NOT NULL` sem default
       type: 'expense' as 'expense',
       description: newExpenseData.description,
       amount: newExpenseData.amount,
-      date: format(newExpenseData.date, 'yyyy-MM-dd'), // Formatar data para Supabase
+      date: format(newExpenseData.date, 'yyyy-MM-dd'), 
       category: newExpenseData.category,
     };
 
@@ -76,11 +76,12 @@ export default function ExpensesPage() {
       .select()
       .single(); 
 
+    setLoading(false);
     if (error) {
       console.error('Erro ao adicionar despesa:', error);
       toast({ title: 'Erro!', description: 'Não foi possível adicionar a despesa.', variant: 'destructive' });
     } else if (data) {
-      setExpenses((prevExpenses) => [{ ...data, date: new Date(data.date) }, ...prevExpenses]);
+      setExpenses((prevExpenses) => [{ ...data, date: new Date(data.date), type: data.type as TransactionType }, ...prevExpenses]);
       toast({
         title: "Despesa Adicionada!",
         description: `A despesa "${data.description}" foi adicionada com sucesso.`,
@@ -94,12 +95,13 @@ export default function ExpensesPage() {
 
   const handleDeleteConfirm = async () => {
     if (!supabase || !transactionToDelete) return;
-    
+    setLoading(true);
     const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', transactionToDelete.id);
-
+    
+    setLoading(false);
     if (error) {
       console.error('Erro ao excluir despesa:', error);
       toast({ title: 'Erro!', description: 'Não foi possível excluir a despesa.', variant: 'destructive' });

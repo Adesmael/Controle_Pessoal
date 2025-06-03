@@ -1,17 +1,18 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {
   id: string;
-  user_id?: string; // Para integração futura com autenticação do Supabase
+  user_id?: string; 
   type: TransactionType;
   description: string;
   amount: number;
-  date: Date | string; // Manter Date para componentes, string para Supabase (Supabase lida com conversão)
-  category?: string; // For expenses
-  source?: string; // For income
-  created_at?: string; // Supabase geralmente adiciona este
+  date: Date; // Alterado para Date, pois a conversão é feita ao buscar/adicionar.
+  category?: string; 
+  source?: string; 
+  created_at?: string; 
 }
 
 export interface ExpenseCategory {

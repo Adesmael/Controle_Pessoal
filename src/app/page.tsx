@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle } from 'lucide-react';
-import type { Transaction } from '@/types';
+import type { Transaction, TransactionType } from '@/types';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -41,8 +41,8 @@ export default function DashboardPage() {
       console.error('Erro ao buscar transações:', error);
       toast({ title: 'Erro!', description: 'Não foi possível buscar as transações para o painel.', variant: 'destructive' });
       setTransactions([]);
-    } else {
-      setTransactions(data.map(t => ({ ...t, date: new Date(t.date) })));
+    } else if (data) {
+      setTransactions(data.map(t => ({ ...t, date: new Date(t.date), type: t.type as TransactionType })));
     }
     setLoading(false);
   }
@@ -83,7 +83,7 @@ export default function DashboardPage() {
 
   const balance = totalIncome - totalExpenses;
 
-  const recentTransactions = transactions.slice(0, 5); // Já ordenado por data do fetch
+  const recentTransactions = transactions.slice(0, 5); 
 
   return (
     <div className="space-y-6">

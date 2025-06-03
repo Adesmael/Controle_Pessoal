@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Transaction } from '@/types';
+import type { Transaction, TransactionType } from '@/types';
 import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,8 +37,8 @@ export default function ReportsPage() {
         console.error('Erro ao buscar todas as transações:', error);
         toast({ title: 'Erro!', description: 'Não foi possível buscar as transações para os relatórios.', variant: 'destructive' });
         setAllTransactions([]);
-      } else {
-        setAllTransactions(data.map(t => ({...t, date: new Date(t.date)})));
+      } else if (data) {
+        setAllTransactions(data.map(t => ({...t, date: new Date(t.date), type: t.type as TransactionType })));
       }
       setLoading(false);
     }

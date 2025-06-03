@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import IncomeForm from '@/components/forms/IncomeForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { Transaction } from '@/types';
+import type { Transaction, TransactionType } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
@@ -53,16 +53,16 @@ export default function IncomePage() {
       console.error('Erro ao buscar receitas:', error);
       toast({ title: 'Erro!', description: 'Não foi possível buscar as receitas.', variant: 'destructive' });
       setIncomes([]);
-    } else {
-      setIncomes(data.map(t => ({...t, date: new Date(t.date)})));
+    } else if (data) {
+      setIncomes(data.map(t => ({...t, date: new Date(t.date), type: t.type as TransactionType })));
     }
     setLoading(false);
   }
 
   const handleIncomeAdded = async (newIncomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
     if (!supabase) return;
+    setLoading(true);
     const incomeToInsert = {
-      // id: crypto.randomUUID(), // Supabase pode gerar UUID automaticamente
       type: 'income' as 'income',
       description: newIncomeData.description,
       amount: newIncomeData.amount,
@@ -76,11 +76,12 @@ export default function IncomePage() {
       .select()
       .single();
 
+    setLoading(false);
     if (error) {
       console.error('Erro ao adicionar receita:', error);
       toast({ title: 'Erro!', description: 'Não foi possível adicionar a receita.', variant: 'destructive' });
     } else if (data) {
-      setIncomes((prevIncomes) => [{ ...data, date: new Date(data.date) }, ...prevIncomes]);
+      setIncomes((prevIncomes) => [{ ...data, date: new Date(data.date), type: data.type as TransactionType }, ...prevIncomes]);
       toast({
         title: "Receita Adicionada!",
         description: `A receita "${data.description}" foi adicionada com sucesso.`,
@@ -94,12 +95,13 @@ export default function IncomePage() {
 
   const handleDeleteConfirm = async () => {
     if (!supabase || !transactionToDelete) return;
-    
+    setLoading(true);
     const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', transactionToDelete.id);
 
+    setLoading(false);
     if (error) {
       console.error('Erro ao excluir receita:', error);
       toast({ title: 'Erro!', description: 'Não foi possível excluir a receita.', variant: 'destructive' });
