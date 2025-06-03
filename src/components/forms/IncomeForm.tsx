@@ -18,6 +18,7 @@ import { CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { INCOME_SOURCES, CURRENCY_SYMBOL } from '@/lib/constants';
 import type { Transaction } from '@/types';
@@ -25,9 +26,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import React from 'react';
 
 const formSchema = z.object({
-  description: z.string().min(2, { message: 'Description must be at least 2 characters.' }).max(100),
-  amount: z.coerce.number().positive({ message: 'Amount must be positive.' }),
-  date: z.date({ required_error: 'A date is required.' }),
+  description: z.string().min(2, { message: 'A descrição deve ter pelo menos 2 caracteres.' }).max(100),
+  amount: z.coerce.number().positive({ message: 'O valor deve ser positivo.' }),
+  date: z.date({ required_error: 'A data é obrigatória.' }),
   source: z.string().optional(),
 });
 
@@ -49,15 +50,15 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newIncome: Transaction = {
-      id: Date.now().toString(), // Simple ID generation
+      id: Date.now().toString(), 
       type: 'income',
       ...values,
-      amount: Number(values.amount) // ensure amount is number
+      amount: Number(values.amount) 
     };
     onIncomeAdded(newIncome);
     toast({
-      title: 'Income Added!',
-      description: `${values.description} for ${CURRENCY_SYMBOL}${values.amount.toFixed(2)} has been recorded.`,
+      title: 'Receita Adicionada!',
+      description: `${values.description} de ${CURRENCY_SYMBOL}${values.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} foi registrada.`,
     });
     form.reset();
   }
@@ -70,9 +71,9 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Descrição</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Monthly Salary, Freelance Project" {...field} />
+                <Input placeholder="ex: Salário Mensal, Projeto Freelance" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -83,9 +84,9 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Amount ({CURRENCY_SYMBOL})</FormLabel>
+              <FormLabel>Valor ({CURRENCY_SYMBOL})</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="e.g., 1500.00" {...field} step="0.01" />
+                <Input type="number" placeholder="ex: 1500,00" {...field} step="0.01" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -96,7 +97,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
           name="date"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Date</FormLabel>
+              <FormLabel>Data</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -107,7 +108,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
                         !field.value && 'text-muted-foreground'
                       )}
                     >
-                      {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                      {field.value ? format(field.value, 'P', { locale: ptBR }) : <span>Escolha uma data</span>}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -119,6 +120,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
                     onSelect={field.onChange}
                     disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
                     initialFocus
+                    locale={ptBR}
                   />
                 </PopoverContent>
               </Popover>
@@ -131,7 +133,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
           name="source"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Source (Optional)</FormLabel>
+              <FormLabel>Fonte (Opcional)</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -147,15 +149,15 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
                         ? INCOME_SOURCES.find(
                             (source) => source.value === field.value
                           )?.label
-                        : "Select source"}
+                        : "Selecione a fonte"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0">
                   <Command>
-                    <CommandInput placeholder="Search source..." />
-                    <CommandEmpty>No source found.</CommandEmpty>
+                    <CommandInput placeholder="Buscar fonte..." />
+                    <CommandEmpty>Nenhuma fonte encontrada.</CommandEmpty>
                     <CommandGroup>
                       {INCOME_SOURCES.map((source) => (
                         <CommandItem
@@ -184,7 +186,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full sm:w-auto">Record Income</Button>
+        <Button type="submit" className="w-full sm:w-auto">Registrar Receita</Button>
       </form>
     </Form>
   );

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import type { Transaction } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
 
@@ -14,8 +15,6 @@ export default function IncomePage() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // Load incomes from local storage or API in a real app
-    // For now, it's just client-side state
     const storedIncomes = localStorage.getItem('financialFlowIncomes');
     if (storedIncomes) {
       setIncomes(JSON.parse(storedIncomes).map((t: Transaction) => ({...t, date: new Date(t.date)})));
@@ -34,19 +33,19 @@ export default function IncomePage() {
   };
   
   if (!hydrated) {
-     return <div className="flex justify-center items-center h-screen"><p>Loading Income Page...</p></div>;
+     return <div className="flex justify-center items-center h-screen"><p>Carregando Página de Receitas...</p></div>;
   }
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Record Income</h1>
-        <p className="text-muted-foreground">Log all your sources of income here.</p>
+        <h1 className="text-3xl font-bold font-headline">Registrar Receita</h1>
+        <p className="text-muted-foreground">Registre todas as suas fontes de receita aqui.</p>
       </div>
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">New Income Entry</CardTitle>
+          <CardTitle className="font-headline text-xl">Novo Registro de Receita</CardTitle>
         </CardHeader>
         <CardContent>
           <IncomeForm onIncomeAdded={handleIncomeAdded} />
@@ -55,8 +54,8 @@ export default function IncomePage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Recent Incomes</CardTitle>
-          <CardDescription>Showing your latest recorded incomes.</CardDescription>
+          <CardTitle className="font-headline text-xl">Receitas Recentes</CardTitle>
+          <CardDescription>Exibindo suas últimas receitas registradas.</CardDescription>
         </CardHeader>
         <CardContent>
           {incomes.length > 0 ? (
@@ -64,20 +63,20 @@ export default function IncomePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Source</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Fonte</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {incomes.slice(0, 10).map((income) => ( // Show latest 10
+                  {incomes.slice(0, 10).map((income) => ( 
                     <TableRow key={income.id}>
                       <TableCell className="font-medium">{income.description}</TableCell>
                       <TableCell className="text-green-600">
-                        {CURRENCY_SYMBOL}{income.amount.toFixed(2)}
+                        {CURRENCY_SYMBOL}{income.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell>{format(new Date(income.date), 'MMM dd, yyyy')}</TableCell>
+                      <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>{income.source || '-'}</TableCell>
                     </TableRow>
                   ))}
@@ -86,8 +85,8 @@ export default function IncomePage() {
             </div>
           ) : (
             <div className="text-center py-10">
-              <Image src="https://placehold.co/300x200.png" alt="No income records" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="empty state money" />
-              <p className="text-muted-foreground">No income recorded yet. Add your first income using the form above.</p>
+              <Image src="https://placehold.co/300x200.png" alt="Nenhum registro de receita" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="dinheiro" />
+              <p className="text-muted-foreground">Nenhuma receita registrada ainda. Adicione sua primeira receita usando o formulário acima.</p>
             </div>
           )}
         </CardContent>

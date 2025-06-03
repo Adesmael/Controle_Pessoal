@@ -29,8 +29,8 @@ import Logo from '@/components/Logo';
 import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
-  title: 'Financial Flow',
-  description: 'Control your income and expenses effectively.',
+  title: 'Fluxo Financeiro',
+  description: 'Controle suas receitas e despesas de forma eficaz.',
 };
 
 // Client component to handle sidebar toggle icon based on state
@@ -45,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -61,34 +61,34 @@ export default function RootLayout({
             <SidebarContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Dashboard">
+                  <SidebarMenuButton asChild tooltip="Painel">
                     <Link href="/">
                       <LayoutDashboard />
-                      <span>Dashboard</span>
+                      <span>Painel</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Record Income">
+                  <SidebarMenuButton asChild tooltip="Registrar Receita">
                     <Link href="/income">
                       <TrendingUp />
-                      <span>Income</span>
+                      <span>Receitas</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Record Expenses">
+                  <SidebarMenuButton asChild tooltip="Registrar Despesa">
                     <Link href="/expenses">
                       <TrendingDown />
-                      <span>Expenses</span>
+                      <span>Despesas</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="View Reports">
+                  <SidebarMenuButton asChild tooltip="Ver Relatórios">
                     <Link href="/reports">
                       <BarChart3 />
-                      <span>Reports</span>
+                      <span>Relatórios</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -97,9 +97,9 @@ export default function RootLayout({
             <SidebarFooter>
               <SidebarMenu>
                 <SidebarMenuItem>
-                   <SidebarMenuButton tooltip="Settings" disabled> {/* Disabled for now */}
+                   <SidebarMenuButton tooltip="Configurações" disabled> {/* Disabled for now */}
                     <Settings />
-                    <span>Settings</span>
+                    <span>Configurações</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -111,7 +111,7 @@ export default function RootLayout({
                  <ToggleIcon />
               </SidebarTrigger>
               <div className="flex-1">
-                <h1 className="font-headline text-lg font-semibold">Financial Flow</h1>
+                <h1 className="font-headline text-lg font-semibold">Fluxo Financeiro</h1>
               </div>
             </header>
             <main className="flex-1 p-4 sm:p-6">

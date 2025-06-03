@@ -10,7 +10,7 @@ export default function Logo() {
         <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
       <h1 className="font-headline text-xl font-bold text-foreground group-data-[collapsible=icon]:hidden">
-        Financial Flow
+        Fluxo Financeiro
       </h1>
     </Link>
   );

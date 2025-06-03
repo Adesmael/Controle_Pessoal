@@ -10,7 +10,6 @@ interface ExpenseBreakdownChartProps {
   expenses: Transaction[];
 }
 
-// Generate distinct colors for categories
 const COLORS = [
   'hsl(var(--chart-1))', 
   'hsl(var(--chart-2))', 
@@ -27,22 +26,22 @@ export default function ExpenseBreakdownChart({ expenses }: ExpenseBreakdownChar
       .filter((e) => e.category === category.value)
       .reduce((sum, e) => sum + e.amount, 0);
     return {
-      name: category.label,
+      name: category.label, // Already translated from constants
       value: total,
-      fill: COLORS[index % COLORS.length], // Assign color
+      fill: COLORS[index % COLORS.length],
     };
-  }).filter(item => item.value > 0); // Only show categories with expenses
+  }).filter(item => item.value > 0);
 
   if (data.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Expense Breakdown</CardTitle>
-          <CardDescription>No expense data available to display chart.</CardDescription>
+          <CardTitle className="font-headline">Detalhamento de Despesas</CardTitle>
+          <CardDescription>Nenhum dado de despesa disponível para exibir o gráfico.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center h-64">
-          <Image src="https://placehold.co/200x150.png" alt="No data for chart" width={200} height={150} className="mb-4 rounded-md" data-ai-hint="chart empty state"/>
-          <p className="text-muted-foreground">Add some expenses to see the breakdown.</p>
+          <Image src="https://placehold.co/200x150.png" alt="Sem dados para o gráfico" width={200} height={150} className="mb-4 rounded-md" data-ai-hint="gráfico estado vazio"/>
+          <p className="text-muted-foreground">Adicione algumas despesas para ver o detalhamento.</p>
         </CardContent>
       </Card>
     );
@@ -51,7 +50,7 @@ export default function ExpenseBreakdownChart({ expenses }: ExpenseBreakdownChar
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline">Expense Breakdown by Category</CardTitle>
+        <CardTitle className="font-headline">Detalhamento de Despesas por Categoria</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -80,7 +79,7 @@ export default function ExpenseBreakdownChart({ expenses }: ExpenseBreakdownChar
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
             </Pie>
-            <Tooltip formatter={(value: number) => `${CURRENCY_SYMBOL}${value.toFixed(2)}`} />
+            <Tooltip formatter={(value: number) => `${CURRENCY_SYMBOL}${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
             <Legend />
           </PieChart>
         </ResponsiveContainer>

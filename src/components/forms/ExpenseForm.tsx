@@ -19,16 +19,17 @@ import { Calendar } from '@/components/ui/calendar';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
 import type { Transaction } from '@/types';
 import React from 'react';
 
 const formSchema = z.object({
-  description: z.string().min(2, { message: 'Description must be at least 2 characters.' }).max(100),
-  amount: z.coerce.number().positive({ message: 'Amount must be positive.' }),
-  date: z.date({ required_error: 'A date is required.' }),
-  category: z.string({ required_error: 'Please select a category.' }),
+  description: z.string().min(2, { message: 'A descrição deve ter pelo menos 2 caracteres.' }).max(100),
+  amount: z.coerce.number().positive({ message: 'O valor deve ser positivo.' }),
+  date: z.date({ required_error: 'A data é obrigatória.' }),
+  category: z.string({ required_error: 'Por favor, selecione uma categoria.' }),
 });
 
 interface ExpenseFormProps {
@@ -49,15 +50,15 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newExpense: Transaction = {
-      id: Date.now().toString(), // Simple ID generation
+      id: Date.now().toString(), 
       type: 'expense',
       ...values,
-      amount: Number(values.amount) // ensure amount is number
+      amount: Number(values.amount) 
     };
     onExpenseAdded(newExpense);
     toast({
-      title: 'Expense Added!',
-      description: `${values.description} for ${CURRENCY_SYMBOL}${values.amount.toFixed(2)} has been recorded.`,
+      title: 'Despesa Adicionada!',
+      description: `${values.description} de ${CURRENCY_SYMBOL}${values.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} foi registrada.`,
       variant: 'default', 
     });
     form.reset();
@@ -71,9 +72,9 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Descrição</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Groceries, Movie tickets" {...field} />
+                <Input placeholder="ex: Supermercado, Ingressos de cinema" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -84,9 +85,9 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Amount ({CURRENCY_SYMBOL})</FormLabel>
+              <FormLabel>Valor ({CURRENCY_SYMBOL})</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="e.g., 50.00" {...field} step="0.01"/>
+                <Input type="number" placeholder="ex: 50,00" {...field} step="0.01"/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -97,7 +98,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
           name="date"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Date of Expense</FormLabel>
+              <FormLabel>Data da Despesa</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -108,7 +109,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
                         !field.value && 'text-muted-foreground'
                       )}
                     >
-                      {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                      {field.value ? format(field.value, 'P', { locale: ptBR }) : <span>Escolha uma data</span>}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -120,6 +121,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
                     onSelect={field.onChange}
                     disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
                     initialFocus
+                    locale={ptBR}
                   />
                 </PopoverContent>
               </Popover>
@@ -132,7 +134,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
           name="category"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Category</FormLabel>
+              <FormLabel>Categoria</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -148,15 +150,15 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
                         ? EXPENSE_CATEGORIES.find(
                             (category) => category.value === field.value
                           )?.label
-                        : "Select category"}
+                        : "Selecione a categoria"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0">
                   <Command>
-                    <CommandInput placeholder="Search category..." />
-                    <CommandEmpty>No category found.</CommandEmpty>
+                    <CommandInput placeholder="Buscar categoria..." />
+                    <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
                     <CommandGroup>
                       {EXPENSE_CATEGORIES.map((category) => (
                         <CommandItem
@@ -186,7 +188,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full sm:w-auto">Record Expense</Button>
+        <Button type="submit" className="w-full sm:w-auto">Registrar Despesa</Button>
       </form>
     </Form>
   );

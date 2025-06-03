@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import type { Transaction } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
 
@@ -32,7 +33,7 @@ export default function ExpensesPage() {
   };
 
   if (!hydrated) {
-    return <div className="flex justify-center items-center h-screen"><p>Loading Expenses Page...</p></div>;
+    return <div className="flex justify-center items-center h-screen"><p>Carregando Página de Despesas...</p></div>;
   }
 
   const getCategoryIcon = (categoryValue?: string) => {
@@ -44,13 +45,13 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Record Expenses</h1>
-        <p className="text-muted-foreground">Keep track of where your money is going.</p>
+        <h1 className="text-3xl font-bold font-headline">Registrar Despesas</h1>
+        <p className="text-muted-foreground">Acompanhe para onde seu dinheiro está indo.</p>
       </div>
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">New Expense Entry</CardTitle>
+          <CardTitle className="font-headline text-xl">Novo Registro de Despesa</CardTitle>
         </CardHeader>
         <CardContent>
           <ExpenseForm onExpenseAdded={handleExpenseAdded} />
@@ -59,8 +60,8 @@ export default function ExpensesPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Recent Expenses</CardTitle>
-          <CardDescription>Showing your latest recorded expenses.</CardDescription>
+          <CardTitle className="font-headline text-xl">Despesas Recentes</CardTitle>
+          <CardDescription>Exibindo suas últimas despesas registradas.</CardDescription>
         </CardHeader>
         <CardContent>
           {expenses.length > 0 ? (
@@ -68,14 +69,14 @@ export default function ExpensesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Data</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.slice(0, 10).map((expense) => ( // Show latest 10
+                  {expenses.slice(0, 10).map((expense) => ( 
                     <TableRow key={expense.id}>
                       <TableCell className="font-medium">{expense.description}</TableCell>
                       <TableCell className="flex items-center">
@@ -83,9 +84,9 @@ export default function ExpensesPage() {
                         {EXPENSE_CATEGORIES.find(cat => cat.value === expense.category)?.label || expense.category || '-'}
                       </TableCell>
                       <TableCell className="text-red-600">
-                        {CURRENCY_SYMBOL}{expense.amount.toFixed(2)}
+                        {CURRENCY_SYMBOL}{expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell>{format(new Date(expense.date), 'MMM dd, yyyy')}</TableCell>
+                      <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -93,8 +94,8 @@ export default function ExpensesPage() {
             </div>
           ) : (
             <div className="text-center py-10">
-              <Image src="https://placehold.co/300x200.png" alt="No expense records" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="empty state wallet" />
-              <p className="text-muted-foreground">No expenses recorded yet. Add your first expense using the form above.</p>
+              <Image src="https://placehold.co/300x200.png" alt="Nenhum registro de despesa" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="carteira vazia" />
+              <p className="text-muted-foreground">Nenhuma despesa registrada ainda. Adicione sua primeira despesa usando o formulário acima.</p>
             </div>
           )}
         </CardContent>
