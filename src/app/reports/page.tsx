@@ -1,26 +1,32 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Transaction, TransactionType } from '@/types';
 import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, FileSpreadsheet, CalendarIcon, FilterX } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [displayedTransactions, setDisplayedTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     if (!supabase) {
@@ -37,78 +43,103 @@ export default function ReportsPage() {
 
       if (error) {
         console.error('Erro ao buscar todas as transações:', error);
-        toast({ 
-          title: 'Erro ao buscar transações!', 
-          description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados para os relatórios.', 
-          variant: 'destructive' 
+        toast({
+          title: 'Erro ao buscar transações!',
+          description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados para os relatórios.',
+          variant: 'destructive'
         });
         setAllTransactions([]);
+        setDisplayedTransactions([]);
       } else if (data) {
-        setAllTransactions(data.map(t => {
+        const formattedData = data.map(t => {
           const [year, month, day] = (t.date as string).split('-').map(Number);
           return {...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
-        }));
+        });
+        setAllTransactions(formattedData);
+        setDisplayedTransactions(formattedData);
       }
       setLoading(false);
     }
     fetchAllTransactions();
   }, [toast]);
 
+  const applyDateFilter = () => {
+    if (!startDate && !endDate) {
+      setDisplayedTransactions(allTransactions);
+      return;
+    }
+
+    let filtered = allTransactions;
+
+    if (startDate) {
+      const filterStart = startOfDay(startDate);
+      filtered = filtered.filter(t => t.date >= filterStart);
+    }
+
+    if (endDate) {
+      const filterEnd = endOfDay(endDate);
+      filtered = filtered.filter(t => t.date <= filterEnd);
+    }
+    setDisplayedTransactions(filtered);
+  };
+
+  const clearDateFilter = () => {
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setDisplayedTransactions(allTransactions);
+  };
+
   const handleExportToExcel = () => {
-    if (!allTransactions.length) {
+    if (!displayedTransactions.length) {
       toast({
         title: 'Nenhuma transação',
-        description: 'Não há transações para exportar.',
+        description: 'Não há transações para exportar no período selecionado.',
         variant: 'default'
       });
       return;
     }
 
-    const dataToExport = allTransactions.map(transaction => ({
+    const dataToExport = displayedTransactions.map(transaction => ({
       'Data': format(transaction.date, 'dd/MM/yyyy', { locale: ptBR }),
       'Descrição': transaction.description,
       'Tipo': transaction.type === 'income' ? 'Receita' : 'Despesa',
-      'Categoria/Fonte': transaction.type === 'expense' 
+      'Categoria/Fonte': transaction.type === 'expense'
         ? (EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
         : (transaction.source || '-'),
-      'Valor': transaction.amount // Exportando como número para cálculos no Excel
+      'Valor': transaction.amount
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    // Definindo a largura das colunas (opcional, mas melhora a visualização)
     worksheet['!cols'] = [
-      { wch: 12 }, // Data
-      { wch: 40 }, // Descrição
-      { wch: 10 }, // Tipo
-      { wch: 25 }, // Categoria/Fonte
-      { wch: 15 }  // Valor
+      { wch: 12 }, { wch: 40 }, { wch: 10 }, { wch: 25 }, { wch: 15 }
     ];
-
-
-    // Formatando a coluna de Valor como moeda BRL
-    // Nota: Esta formatação pode não ser universalmente aplicada por todos os leitores de Excel,
-    // mas é um padrão comum. O usuário pode precisar formatar manualmente em alguns casos.
     dataToExport.forEach((_, index) => {
-      const cellRef = XLSX.utils.encode_cell({c: 4, r: index + 1}); // Coluna E (Valor), a partir da linha 2 (index + 1)
-      if(worksheet[cellRef]) { // Verifica se a célula existe
+      const cellRef = XLSX.utils.encode_cell({c: 4, r: index + 1});
+      if(worksheet[cellRef]) {
          worksheet[cellRef].z = `"${CURRENCY_SYMBOL}" #,##0.00;[Red]-"${CURRENCY_SYMBOL}" #,##0.00`;
-         worksheet[cellRef].t = 'n'; // Garante que é tratado como número
+         worksheet[cellRef].t = 'n';
       }
     });
-    
-    // Ajustando o cabeçalho para "Valor (R$)"
     XLSX.utils.sheet_add_aoa(worksheet, [['Data', 'Descrição', 'Tipo', `Categoria/Fonte`, `Valor (${CURRENCY_SYMBOL})`]], { origin: 'A1' });
-
-
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Transações');
     XLSX.writeFile(workbook, 'transacoes_fluxo_financeiro.xlsx');
-
     toast({
       title: 'Exportação Concluída',
       description: 'O arquivo transacoes_fluxo_financeiro.xlsx foi baixado.',
     });
   };
+
+  const summary = useMemo(() => {
+    const totalIncome = displayedTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalExpenses = displayedTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const balance = totalIncome - totalExpenses;
+    return { totalIncome, totalExpenses, balance };
+  }, [displayedTransactions]);
 
 
   if (!supabase) {
@@ -137,21 +168,10 @@ export default function ReportsPage() {
     );
   }
 
-  const totalIncome = allTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  const totalExpenses = allTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  const balance = totalIncome - totalExpenses;
-
   const getCategoryIcon = (categoryValue?: string) => {
     const category = EXPENSE_CATEGORIES.find(cat => cat.value === categoryValue);
     return category ? <category.icon className="h-4 w-4 mr-1 inline-block text-muted-foreground" /> : null;
   };
-
 
   return (
     <div className="space-y-8">
@@ -163,45 +183,121 @@ export default function ReportsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Geral</CardTitle>
+            <CardTitle className="text-sm font-medium">Receita (Período)</CardTitle>
             <TrendingUp className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{CURRENCY_SYMBOL}{totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="text-2xl font-bold">{CURRENCY_SYMBOL}{summary.totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas Gerais</CardTitle>
+            <CardTitle className="text-sm font-medium">Despesas (Período)</CardTitle>
             <TrendingDown className="h-5 w-5 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{CURRENCY_SYMBOL}{totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="text-2xl font-bold">{CURRENCY_SYMBOL}{summary.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Líquido</CardTitle>
+            <CardTitle className="text-sm font-medium">Saldo (Período)</CardTitle>
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-             <div className={`text-2xl font-bold ${balance >= 0 ? '' : 'text-destructive'}`}>
-              {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+             <div className={`text-2xl font-bold ${summary.balance >= 0 ? '' : 'text-destructive'}`}>
+              {CURRENCY_SYMBOL}{summary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
       </div>
-      
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline text-lg">Filtrar Transações por Data</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="grid gap-2 w-full sm:w-auto">
+            <label htmlFor="startDate" className="text-sm font-medium">Data Inicial</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="startDate"
+                  variant={'outline'}
+                  className={cn(
+                    'w-full sm:w-[240px] justify-start text-left font-normal',
+                    !startDate && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, 'dd/MM/yyyy', { locale: ptBR }) : <span>Escolha uma data</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={setStartDate}
+                  initialFocus
+                  locale={ptBR}
+                  disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="grid gap-2 w-full sm:w-auto">
+            <label htmlFor="endDate" className="text-sm font-medium">Data Final</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="endDate"
+                  variant={'outline'}
+                  className={cn(
+                    'w-full sm:w-[240px] justify-start text-left font-normal',
+                    !endDate && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, 'dd/MM/yyyy', { locale: ptBR }) : <span>Escolha uma data</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={setEndDate}
+                  initialFocus
+                  locale={ptBR}
+                  disabled={(date) => date > new Date() || date < (startDate || new Date('1900-01-01'))}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Button onClick={applyDateFilter} className="w-full sm:w-auto">Filtrar</Button>
+          <Button onClick={clearDateFilter} variant="outline" className="w-full sm:w-auto">
+            <FilterX className="mr-2 h-4 w-4" />
+            Limpar Filtro
+          </Button>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-2">
-        <IncomeExpenseChart transactions={allTransactions} />
-        <ExpenseBreakdownChart expenses={allTransactions.filter(t => t.type === 'expense')} />
+        <IncomeExpenseChart transactions={displayedTransactions} />
+        <ExpenseBreakdownChart expenses={displayedTransactions.filter(t => t.type === 'expense')} />
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="font-headline text-xl">Todas as Transações</CardTitle>
-            <CardDescription>Uma lista completa de suas receitas e despesas registradas.</CardDescription>
+            <CardTitle className="font-headline text-xl">Transações do Período</CardTitle>
+            <CardDescription>
+              {startDate && endDate ?
+                `Exibindo transações de ${format(startDate, 'dd/MM/yy')} a ${format(endDate, 'dd/MM/yy')}.` :
+                startDate ? `Exibindo transações a partir de ${format(startDate, 'dd/MM/yy')}.` :
+                endDate ? `Exibindo transações até ${format(endDate, 'dd/MM/yy')}.` :
+                'Uma lista completa de suas receitas e despesas registradas.'
+              }
+            </CardDescription>
           </div>
           <Button onClick={handleExportToExcel} variant="outline">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -209,7 +305,7 @@ export default function ReportsPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {allTransactions.length > 0 ? (
+          {displayedTransactions.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -222,7 +318,7 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allTransactions.map((transaction) => (
+                  {displayedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>{format(transaction.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="font-medium">{transaction.description}</TableCell>
@@ -235,7 +331,7 @@ export default function ReportsPage() {
                       </TableCell>
                       <TableCell className="flex items-center">
                         {transaction.type === 'expense' ? getCategoryIcon(transaction.category) : null}
-                        {transaction.type === 'expense' 
+                        {transaction.type === 'expense'
                           ? (EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
                           : (transaction.source || '-')}
                       </TableCell>
@@ -249,8 +345,8 @@ export default function ReportsPage() {
             </div>
           ) : (
              <div className="text-center py-10">
-               <Image src="https://placehold.co/300x200.png" alt="Nenhuma transação encontrada" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="documento vazio"/>
-              <p className="text-muted-foreground">Nenhuma transação encontrada. Comece adicionando receitas ou despesas.</p>
+               <Image src="https://placehold.co/300x200.png" alt="Nenhuma transação encontrada" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="documento pesquisa vazia"/>
+              <p className="text-muted-foreground">Nenhuma transação encontrada para o período selecionado ou nenhuma transação registrada.</p>
             </div>
           )}
         </CardContent>
@@ -258,4 +354,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
