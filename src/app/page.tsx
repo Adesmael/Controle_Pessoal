@@ -1,58 +1,89 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle } from 'lucide-react';
 import type { Transaction } from '@/types';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from 'next/image';
-
-const mockTransactions: Transaction[] = [
-  { id: '1', type: 'income', description: 'Salário Mensal', amount: 5000, date: new Date(2024, 6, 1), source: 'salary' },
-  { id: '2', type: 'expense', description: 'Supermercado', amount: 150, date: new Date(2024, 6, 3), category: 'food' },
-  { id: '3', type: 'expense', description: 'Assinatura Netflix', amount: 15, date: new Date(2024, 6, 5), category: 'entertainment' },
-  { id: '4', type: 'income', description: 'Projeto Freelance', amount: 750, date: new Date(2024, 6, 10), source: 'freelance' },
-  { id: '5', type: 'expense', description: 'Conta de Gás', amount: 60, date: new Date(2024, 6, 12), category: 'utilities' },
-];
+import { supabase } from '@/lib/supabaseClient';
+import { useToast } from "@/hooks/use-toast";
 
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    setTransactions(mockTransactions); // In a real app, this would be combined with localStorage/API data
-    setHydrated(true);
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    fetchTransactions();
   }, []);
 
-  if (!hydrated) {
-    return <div className="flex justify-center items-center h-screen"><p>Carregando Painel...</p></div>;
+  async function fetchTransactions() {
+    if (!supabase) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar transações:', error);
+      toast({ title: 'Erro!', description: 'Não foi possível buscar as transações para o painel.', variant: 'destructive' });
+      setTransactions([]);
+    } else {
+      setTransactions(data.map(t => ({ ...t, date: new Date(t.date) })));
+    }
+    setLoading(false);
+  }
+
+  if (!supabase) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-4 bg-background text-foreground">
+        <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
+        <h1 className="text-2xl font-bold mb-4 text-destructive">Supabase Não Configurado</h1>
+        <p className="mb-2">As variáveis de ambiente do Supabase (URL e Chave Anônima) não foram encontradas.</p>
+        <p className="mb-2">Por favor, crie um arquivo <code>.env.local</code> na raiz do projeto com o seguinte conteúdo:</p>
+        <pre className="bg-muted p-3 rounded-md text-sm my-3 text-left shadow">
+          {`NEXT_PUBLIC_SUPABASE_URL=SUA_URL_AQUI\nNEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_AQUI`}
+        </pre>
+        <p className="text-sm text-muted-foreground mb-1">Substitua <code>SUA_URL_AQUI</code> e <code>SUA_CHAVE_AQUI</code> com suas credenciais do Supabase.</p>
+        <p className="mb-4">Após criar ou modificar o arquivo, <strong className="text-primary">reinicie o servidor de desenvolvimento</strong>.</p>
+        <p className="text-muted-foreground mt-4">O Painel estará indisponível até que o Supabase seja configurado.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando Painel...</p>
+      </div>
+    );
   }
 
   const totalIncome = transactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const totalExpenses = transactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const balance = totalIncome - totalExpenses;
 
-  const recentTransactions = transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-
-  const getCategoryDisplay = (transaction: Transaction) => {
-    if (transaction.type === 'expense') {
-      const category = EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category);
-      return category ? category.label : (transaction.category || '-');
-    }
-    return transaction.source || '-';
-  };
+  const recentTransactions = transactions.slice(0, 5); // Já ordenado por data do fetch
 
   return (
     <div className="space-y-6">
@@ -135,7 +166,7 @@ export default function DashboardPage() {
                       </span>
                     </TableCell>
                     <TableCell className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-                      {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                   </TableRow>
