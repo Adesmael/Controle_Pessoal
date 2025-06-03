@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, Activity, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +21,12 @@ export default function ReportsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     async function fetchAllTransactions() {
+      if (!supabase) return;
       setLoading(true);
       const { data, error } = await supabase
         .from('transactions')
@@ -39,6 +44,23 @@ export default function ReportsPage() {
     }
     fetchAllTransactions();
   }, [toast]);
+
+  if (!supabase) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-4 bg-background text-foreground">
+        <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
+        <h1 className="text-2xl font-bold mb-4 text-destructive">Supabase Não Configurado</h1>
+        <p className="mb-2">As variáveis de ambiente do Supabase (URL e Chave Anônima) não foram encontradas.</p>
+        <p className="mb-2">Por favor, crie um arquivo <code>.env.local</code> na raiz do projeto com o seguinte conteúdo:</p>
+        <pre className="bg-muted p-3 rounded-md text-sm my-3 text-left shadow">
+          {`NEXT_PUBLIC_SUPABASE_URL=SUA_URL_AQUI\nNEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_AQUI`}
+        </pre>
+        <p className="text-sm text-muted-foreground mb-1">Substitua <code>SUA_URL_AQUI</code> e <code>SUA_CHAVE_AQUI</code> com suas credenciais do Supabase.</p>
+        <p className="mb-4">Após criar ou modificar o arquivo, <strong className="text-primary">reinicie o servidor de desenvolvimento</strong>.</p>
+        <p className="text-muted-foreground mt-4">A página de Relatórios estará indisponível até que o Supabase seja configurado.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

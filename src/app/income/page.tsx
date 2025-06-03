@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +32,16 @@ export default function IncomePage() {
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    fetchIncomes();
+  }, []);
+
   async function fetchIncomes() {
+    if (!supabase) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('transactions')
@@ -50,13 +59,10 @@ export default function IncomePage() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    fetchIncomes();
-  }, []);
-
   const handleIncomeAdded = async (newIncomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
+    if (!supabase) return;
     const incomeToInsert = {
-      id: crypto.randomUUID(),
+      // id: crypto.randomUUID(), // Supabase pode gerar UUID automaticamente
       type: 'income' as 'income',
       description: newIncomeData.description,
       amount: newIncomeData.amount,
@@ -87,26 +93,43 @@ export default function IncomePage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (transactionToDelete) {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', transactionToDelete.id);
+    if (!supabase || !transactionToDelete) return;
+    
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', transactionToDelete.id);
 
-      if (error) {
-        console.error('Erro ao excluir receita:', error);
-        toast({ title: 'Erro!', description: 'Não foi possível excluir a receita.', variant: 'destructive' });
-      } else {
-        setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
-        toast({
-          title: "Receita Excluída!",
-          description: `A receita "${transactionToDelete.description}" foi excluída com sucesso.`,
-        });
-      }
-      setTransactionToDelete(null); 
+    if (error) {
+      console.error('Erro ao excluir receita:', error);
+      toast({ title: 'Erro!', description: 'Não foi possível excluir a receita.', variant: 'destructive' });
+    } else {
+      setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
+      toast({
+        title: "Receita Excluída!",
+        description: `A receita "${transactionToDelete.description}" foi excluída com sucesso.`,
+      });
     }
+    setTransactionToDelete(null); 
   };
   
+  if (!supabase) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-4 bg-background text-foreground">
+        <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
+        <h1 className="text-2xl font-bold mb-4 text-destructive">Supabase Não Configurado</h1>
+        <p className="mb-2">As variáveis de ambiente do Supabase (URL e Chave Anônima) não foram encontradas.</p>
+        <p className="mb-2">Por favor, crie um arquivo <code>.env.local</code> na raiz do projeto com o seguinte conteúdo:</p>
+        <pre className="bg-muted p-3 rounded-md text-sm my-3 text-left shadow">
+          {`NEXT_PUBLIC_SUPABASE_URL=SUA_URL_AQUI\nNEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_AQUI`}
+        </pre>
+        <p className="text-sm text-muted-foreground mb-1">Substitua <code>SUA_URL_AQUI</code> e <code>SUA_CHAVE_AQUI</code> com suas credenciais do Supabase.</p>
+        <p className="mb-4">Após criar ou modificar o arquivo, <strong className="text-primary">reinicie o servidor de desenvolvimento</strong>.</p>
+        <p className="text-muted-foreground mt-4">A página de Receitas estará indisponível até que o Supabase seja configurado.</p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">

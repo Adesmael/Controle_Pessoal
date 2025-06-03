@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +32,16 @@ export default function ExpensesPage() {
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    fetchExpenses();
+  }, []);
+  
   async function fetchExpenses() {
+    if (!supabase) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('transactions')
@@ -49,14 +58,11 @@ export default function ExpensesPage() {
     }
     setLoading(false);
   }
-
-  useEffect(() => {
-    fetchExpenses();
-  }, []);
   
   const handleExpenseAdded = async (newExpenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
+    if (!supabase) return;
     const expenseToInsert = {
-      id: crypto.randomUUID(), // Supabase pode gerar UUID automaticamente se a coluna 'id' for configurada como tal
+      // id: crypto.randomUUID(), // Supabase pode gerar UUID automaticamente se a coluna 'id' for configurada como tal e não for `NOT NULL` sem default
       type: 'expense' as 'expense',
       description: newExpenseData.description,
       amount: newExpenseData.amount,
@@ -68,13 +74,12 @@ export default function ExpensesPage() {
       .from('transactions')
       .insert([expenseToInsert])
       .select()
-      .single(); // .single() é importante se você espera um único objeto de volta
+      .single(); 
 
     if (error) {
       console.error('Erro ao adicionar despesa:', error);
       toast({ title: 'Erro!', description: 'Não foi possível adicionar a despesa.', variant: 'destructive' });
     } else if (data) {
-      // Adiciona a nova despesa (com data convertida de volta para Date) ao início da lista
       setExpenses((prevExpenses) => [{ ...data, date: new Date(data.date) }, ...prevExpenses]);
       toast({
         title: "Despesa Adicionada!",
@@ -88,25 +93,42 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (transactionToDelete) {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', transactionToDelete.id);
+    if (!supabase || !transactionToDelete) return;
+    
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', transactionToDelete.id);
 
-      if (error) {
-        console.error('Erro ao excluir despesa:', error);
-        toast({ title: 'Erro!', description: 'Não foi possível excluir a despesa.', variant: 'destructive' });
-      } else {
-        setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
-        toast({
-          title: "Despesa Excluída!",
-          description: `A despesa "${transactionToDelete.description}" foi excluída com sucesso.`,
-        });
-      }
-      setTransactionToDelete(null);
+    if (error) {
+      console.error('Erro ao excluir despesa:', error);
+      toast({ title: 'Erro!', description: 'Não foi possível excluir a despesa.', variant: 'destructive' });
+    } else {
+      setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
+      toast({
+        title: "Despesa Excluída!",
+        description: `A despesa "${transactionToDelete.description}" foi excluída com sucesso.`,
+      });
     }
+    setTransactionToDelete(null);
   };
+
+  if (!supabase) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-4 bg-background text-foreground">
+        <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
+        <h1 className="text-2xl font-bold mb-4 text-destructive">Supabase Não Configurado</h1>
+        <p className="mb-2">As variáveis de ambiente do Supabase (URL e Chave Anônima) não foram encontradas.</p>
+        <p className="mb-2">Por favor, crie um arquivo <code>.env.local</code> na raiz do projeto com o seguinte conteúdo:</p>
+        <pre className="bg-muted p-3 rounded-md text-sm my-3 text-left shadow">
+          {`NEXT_PUBLIC_SUPABASE_URL=SUA_URL_AQUI\nNEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_AQUI`}
+        </pre>
+        <p className="text-sm text-muted-foreground mb-1">Substitua <code>SUA_URL_AQUI</code> e <code>SUA_CHAVE_AQUI</code> com suas credenciais do Supabase.</p>
+        <p className="mb-4">Após criar ou modificar o arquivo, <strong className="text-primary">reinicie o servidor de desenvolvimento</strong>.</p>
+        <p className="text-muted-foreground mt-4">A página de Despesas estará indisponível até que o Supabase seja configurado.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
