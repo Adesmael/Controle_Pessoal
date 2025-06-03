@@ -3,78 +3,96 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'PT Sans', sans-serif; /* Default body font */
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --background: 120 100% 97%; /* #F0FFF0 - Honeydew */
+    --foreground: 120 25% 20%; /* #263326 - Dark Green */
+
+    --card: 120 75% 98%; /* #F7FBF7 - Lighter Honeydew */
+    --card-foreground: 120 25% 20%; /* #263326 */
+
+    --popover: 120 75% 98%; /* #F7FBF7 */
+    --popover-foreground: 120 25% 20%; /* #263326 */
+
+    --primary: 120 73% 75%; /* #90EE90 - LightGreen */
+    --primary-foreground: 120 60% 25%; /* #2D592D - Dark Green for text on primary */
+
+    --secondary: 120 60% 92%; /* #E1F5E1 - Lighter shade of primary hue */
+    --secondary-foreground: 120 30% 30%; /* #3D5C3D */
+
+    --muted: 120 50% 95%; /* #ECF5EC */
+    --muted-foreground: 120 20% 40%; /* #596B59 */
+
+    --accent: 200 53% 79%; /* #ADD8E6 - LightBlue */
+    --accent-foreground: 200 30% 25%; /* #46616D - Dark Blue for text on accent */
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+
+    --border: 120 40% 88%; /* #D4EBD4 */
+    --input: 120 50% 94%; /* #EAF3EA */
+    --ring: 120 73% 65%; /* #76DE76 - Slightly darker primary for focus */
+
+    --chart-1: 120 70% 60%;
+    --chart-2: 200 60% 70%;
+    --chart-3: 45 70% 60%;
+    --chart-4: 280 60% 70%;
+    --chart-5: 0 70% 70%;
+
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Sidebar specific colors - Light Theme */
+    --sidebar-background: 120 60% 95%; /* #EBF5EB - A light green, distinct from main BG */
+    --sidebar-foreground: 120 25% 25%; /* #334033 - Darker text for sidebar */
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: 120 70% 90%; /* #D9F2D9 - Hover effects for menu items */
+    --sidebar-accent-foreground: 120 50% 20%; /* #264026 */
+    --sidebar-border: 120 30% 85%; /* #CDE0CD */
+    --sidebar-ring: var(--ring);
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 120 10% 10%; /* #171A17 - Very dark desaturated green */
+    --foreground: 120 40% 90%; /* #DDE8DD - Light desaturated green */
+
+    --card: 120 10% 12%; /* #1A1E1A */
+    --card-foreground: 120 40% 90%; /* #DDE8DD */
+
+    --popover: 120 10% 12%; /* #1A1E1A */
+    --popover-foreground: 120 40% 90%; /* #DDE8DD */
+
+    --primary: 120 50% 60%; /* #7ACC7A - Pleasant green on dark */
+    --primary-foreground: 120 80% 15%; /* #1A3D1A - Very dark green text */
+
+    --secondary: 120 10% 18%; /* #262B26 */
+    --secondary-foreground: 120 30% 70%; /* #A8C2A8 */
+
+    --muted: 120 8% 15%; /* #212421 */
+    --muted-foreground: 120 20% 50%; /* #737D73 */
+
+    --accent: 200 40% 65%; /* #81AEC4 - Pleasant blue on dark */
+    --accent-foreground: 200 60% 15%; /* #1B313D - Very dark blue text */
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --border: 120 8% 22%; /* #313631 */
+    --input: 120 8% 20%; /* #2B2E2B */
+    --ring: 120 50% 50%; /* #66B366 - Focus ring for dark primary */
+
+    /* Sidebar specific colors - Dark Theme */
+    --sidebar-background: 120 10% 14%; /* #1E231E - Slightly distinct dark for sidebar */
+    --sidebar-foreground: 120 40% 85%; /* #CFE0CF */
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: 120 10% 20%; /* #2B2E2B - Hover for dark sidebar */
+    --sidebar-accent-foreground: 120 50% 90%; /* #D9F2D9 */
+    --sidebar-border: 120 8% 25%; /* #363B36 */
+    --sidebar-ring: var(--ring);
   }
 }
 
@@ -84,5 +102,8 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
   }
 }
