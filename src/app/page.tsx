@@ -46,7 +46,10 @@ export default function DashboardPage() {
       });
       setTransactions([]);
     } else if (data) {
-      setTransactions(data.map(t => ({ ...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
+      setTransactions(data.map(t => {
+        const [year, month, day] = (t.date as string).split('-').map(Number);
+        return { ...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
+      }));
     }
     setLoading(false);
   }
@@ -134,7 +137,7 @@ export default function DashboardPage() {
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold font-body ${balance >= 0 ? '' : 'text-destructive'}`}> {/* Cor baseada no tema */}
+            <div className={`text-2xl font-bold font-body ${balance >= 0 ? '' : 'text-destructive'}`}>
               {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">Sua saúde financeira</p>
@@ -169,10 +172,10 @@ export default function DashboardPage() {
                         {transaction.type === 'income' ? 'Receita' : 'Despesa'}
                       </span>
                     </TableCell>
-                    <TableCell className={transaction.type === 'income' ? '' : 'text-destructive'}> {/* Cor baseada no tema */}
+                    <TableCell className={transaction.type === 'income' ? '' : 'text-destructive'}>
                       {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                    <TableCell>{format(transaction.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -188,4 +191,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

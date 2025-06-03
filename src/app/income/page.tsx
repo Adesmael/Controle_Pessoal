@@ -21,7 +21,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  // AlertDialogTrigger, // Removido pois não será mais usado diretamente na tabela
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabaseClient';
@@ -58,7 +57,10 @@ export default function IncomePage() {
       });
       setIncomes([]);
     } else if (data) {
-      setIncomes(data.map(t => ({...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
+      setIncomes(data.map(t => {
+        const [year, month, day] = (t.date as string).split('-').map(Number);
+        return {...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
+      }));
     }
     setLoading(false);
   }
@@ -90,7 +92,9 @@ export default function IncomePage() {
         variant: 'destructive' 
       });
     } else if (data) {
-      setIncomes((prevIncomes) => [{ ...data, id: data.id as string, date: new Date(data.date), type: data.type as TransactionType }, ...prevIncomes]);
+      const [year, month, day] = (data.date as string).split('-').map(Number);
+      const newIncome = { ...data, id: data.id as string, date: new Date(year, month - 1, day), type: data.type as TransactionType };
+      setIncomes((prevIncomes) => [newIncome, ...prevIncomes]);
       toast({
         title: "Receita Adicionada!",
         description: `A receita "${data.description}" foi adicionada com sucesso.`,
@@ -195,12 +199,12 @@ export default function IncomePage() {
                       <TableCell> 
                         {CURRENCY_SYMBOL}{Number(income.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{format(income.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>{income.source || '-'}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(income)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(income)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -235,4 +239,3 @@ export default function IncomePage() {
     </div>
   );
 }
-

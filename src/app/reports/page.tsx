@@ -42,7 +42,10 @@ export default function ReportsPage() {
         });
         setAllTransactions([]);
       } else if (data) {
-        setAllTransactions(data.map(t => ({...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
+        setAllTransactions(data.map(t => {
+          const [year, month, day] = (t.date as string).split('-').map(Number);
+          return {...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
+        }));
       }
       setLoading(false);
     }
@@ -123,7 +126,7 @@ export default function ReportsPage() {
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-             <div className={`text-2xl font-bold ${balance >= 0 ? '' : 'text-destructive'}`}> {/* Cor baseada no tema */}
+             <div className={`text-2xl font-bold ${balance >= 0 ? '' : 'text-destructive'}`}>
               {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -156,7 +159,7 @@ export default function ReportsPage() {
                 <TableBody>
                   {allTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{format(transaction.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="font-medium">{transaction.description}</TableCell>
                       <TableCell>
                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -171,7 +174,7 @@ export default function ReportsPage() {
                           ? (EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
                           : (transaction.source || '-')}
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? '' : 'text-destructive'}`}> {/* Cor baseada no tema */}
+                      <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? '' : 'text-destructive'}`}>
                         {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
@@ -190,4 +193,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-

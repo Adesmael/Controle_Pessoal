@@ -21,7 +21,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  // AlertDialogTrigger, // Removido pois não será mais usado diretamente na tabela
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabaseClient';
@@ -58,7 +57,10 @@ export default function ExpensesPage() {
       });
       setExpenses([]);
     } else if (data) {
-      setExpenses(data.map(t => ({...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
+      setExpenses(data.map(t => {
+        const [year, month, day] = (t.date as string).split('-').map(Number);
+        return {...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
+      }));
     }
     setLoading(false);
   }
@@ -90,7 +92,9 @@ export default function ExpensesPage() {
         variant: 'destructive' 
       });
     } else if (data) {
-      setExpenses((prevExpenses) => [{ ...data, id: data.id as string, date: new Date(data.date), type: data.type as TransactionType }, ...prevExpenses]);
+      const [year, month, day] = (data.date as string).split('-').map(Number);
+      const newExpense = { ...data, id: data.id as string, date: new Date(year, month - 1, day), type: data.type as TransactionType };
+      setExpenses((prevExpenses) => [newExpense, ...prevExpenses]);
       toast({
         title: "Despesa Adicionada!",
         description: `A despesa "${data.description}" foi adicionada com sucesso.`,
@@ -205,11 +209,11 @@ export default function ExpensesPage() {
                       <TableCell> 
                         {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{format(expense.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -244,4 +248,3 @@ export default function ExpensesPage() {
     </div>
   );
 }
-
