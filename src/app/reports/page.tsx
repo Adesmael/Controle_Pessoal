@@ -287,7 +287,7 @@ export default function ReportsPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="font-headline text-xl">Transações do Período</CardTitle>
             <CardDescription>
@@ -299,7 +299,7 @@ export default function ReportsPage() {
               }
             </CardDescription>
           </div>
-          <Button onClick={handleExportToExcel} variant="outline">
+          <Button onClick={handleExportToExcel} variant="outline" className="w-full sm:w-auto">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Exportar para Excel
           </Button>

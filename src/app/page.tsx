@@ -94,15 +94,15 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold font-headline">Painel</h1>
-        <div className="flex gap-2">
-          <Button asChild variant="default">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button asChild variant="default" className="w-full sm:w-auto">
             <Link href="/income">
               <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Receita
             </Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link href="/expenses">
               <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Despesa
             </Link>
