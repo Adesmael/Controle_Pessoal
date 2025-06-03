@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,10 +20,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useToast } from '@/hooks/use-toast';
 import { INCOME_SOURCES, CURRENCY_SYMBOL } from '@/lib/constants';
 import type { Transaction } from '@/types';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import React from 'react';
 
 const formSchema = z.object({
@@ -32,36 +32,31 @@ const formSchema = z.object({
   source: z.string().optional(),
 });
 
+type IncomeFormValues = z.infer<typeof formSchema>;
+
 interface IncomeFormProps {
-  onIncomeAdded: (income: Transaction) => void;
+  onIncomeAdded: (incomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => void;
 }
 
 export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
-  const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<IncomeFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
-      amount: '' as unknown as number, // Initialize with empty string
+      amount: '' as unknown as number,
       date: new Date(),
       source: '',
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const newIncome: Transaction = {
-      id: Date.now().toString(), 
-      type: 'income',
-      ...values,
-      amount: Number(values.amount) 
-    };
-    onIncomeAdded(newIncome);
-    toast({
-      title: 'Receita Adicionada!',
-      description: `${values.description} de ${CURRENCY_SYMBOL}${values.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} foi registrada.`,
+  function onSubmit(values: IncomeFormValues) {
+     onIncomeAdded({
+      description: values.description,
+      amount: values.amount,
+      date: values.date,
+      source: values.source,
     });
     form.reset();
-    // Ensure amount is reset to empty string for controlled input
     form.setValue('amount', '' as unknown as number);
     form.setValue('date', new Date());
     form.setValue('source', '');
@@ -91,7 +86,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
             <FormItem>
               <FormLabel>Valor ({CURRENCY_SYMBOL})</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="ex: 1500,00" {...field} step="0.01" />
+                <Input type="number" placeholder="ex: 1500,00" {...field} step="0.01" value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : field.value} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -162,28 +157,30 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
                 <PopoverContent className="w-full p-0">
                   <Command>
                     <CommandInput placeholder="Buscar fonte..." />
-                    <CommandEmpty>Nenhuma fonte encontrada.</CommandEmpty>
-                    <CommandGroup>
-                      {INCOME_SOURCES.map((source) => (
-                        <CommandItem
-                          value={source.label}
-                          key={source.value}
-                          onSelect={() => {
-                            form.setValue("source", source.value)
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              source.value === field.value
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
-                          {source.label}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                    <CommandList>
+                      <CommandEmpty>Nenhuma fonte encontrada.</CommandEmpty>
+                      <CommandGroup>
+                        {INCOME_SOURCES.map((source) => (
+                          <CommandItem
+                            value={source.label}
+                            key={source.value}
+                            onSelect={() => {
+                              form.setValue("source", source.value)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                source.value === field.value
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            {source.label}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>

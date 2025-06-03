@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,48 +24,97 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/lib/supabaseClient';
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Transaction[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const storedExpenses = localStorage.getItem('financialFlowExpenses');
-    if (storedExpenses) {
-      setExpenses(JSON.parse(storedExpenses).map((t: Transaction) => ({...t, date: new Date(t.date)})));
+  async function fetchExpenses() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('type', 'expense')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar despesas:', error);
+      toast({ title: 'Erro!', description: 'Não foi possível buscar as despesas.', variant: 'destructive' });
+      setExpenses([]);
+    } else {
+      setExpenses(data.map(t => ({...t, date: new Date(t.date)})));
     }
-    setHydrated(true);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    fetchExpenses();
   }, []);
   
-  useEffect(() => {
-    if (hydrated) {
-      localStorage.setItem('financialFlowExpenses', JSON.stringify(expenses));
-    }
-  }, [expenses, hydrated]);
+  const handleExpenseAdded = async (newExpenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
+    const expenseToInsert = {
+      id: crypto.randomUUID(), // Supabase pode gerar UUID automaticamente se a coluna 'id' for configurada como tal
+      type: 'expense' as 'expense',
+      description: newExpenseData.description,
+      amount: newExpenseData.amount,
+      date: format(newExpenseData.date, 'yyyy-MM-dd'), // Formatar data para Supabase
+      category: newExpenseData.category,
+    };
 
-  const handleExpenseAdded = (newExpense: Transaction) => {
-    setExpenses((prevExpenses) => [newExpense, ...prevExpenses]);
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert([expenseToInsert])
+      .select()
+      .single(); // .single() é importante se você espera um único objeto de volta
+
+    if (error) {
+      console.error('Erro ao adicionar despesa:', error);
+      toast({ title: 'Erro!', description: 'Não foi possível adicionar a despesa.', variant: 'destructive' });
+    } else if (data) {
+      // Adiciona a nova despesa (com data convertida de volta para Date) ao início da lista
+      setExpenses((prevExpenses) => [{ ...data, date: new Date(data.date) }, ...prevExpenses]);
+      toast({
+        title: "Despesa Adicionada!",
+        description: `A despesa "${data.description}" foi adicionada com sucesso.`,
+      });
+    }
   };
 
   const openDeleteDialog = (transaction: Transaction) => {
     setTransactionToDelete(transaction);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (transactionToDelete) {
-      setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
-      toast({
-        title: "Despesa Excluída!",
-        description: `A despesa "${transactionToDelete.description}" foi excluída com sucesso.`,
-      });
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionToDelete.id);
+
+      if (error) {
+        console.error('Erro ao excluir despesa:', error);
+        toast({ title: 'Erro!', description: 'Não foi possível excluir a despesa.', variant: 'destructive' });
+      } else {
+        setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
+        toast({
+          title: "Despesa Excluída!",
+          description: `A despesa "${transactionToDelete.description}" foi excluída com sucesso.`,
+        });
+      }
       setTransactionToDelete(null);
     }
   };
 
-  if (!hydrated) {
-    return <div className="flex justify-center items-center h-screen"><p>Carregando Página de Despesas...</p></div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando Despesas...</p>
+      </div>
+    );
   }
 
   const getCategoryIcon = (categoryValue?: string) => {
@@ -109,7 +158,7 @@ export default function ExpensesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.slice(0, 10).map((expense) => ( 
+                  {expenses.map((expense) => ( 
                     <TableRow key={expense.id}>
                       <TableCell className="font-medium">{expense.description}</TableCell>
                       <TableCell className="flex items-center">
@@ -117,7 +166,7 @@ export default function ExpensesPage() {
                         {EXPENSE_CATEGORIES.find(cat => cat.value === expense.category)?.label || expense.category || '-'}
                       </TableCell>
                       <TableCell className="text-red-600">
-                        {CURRENCY_SYMBOL}{expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="text-right">
@@ -146,7 +195,7 @@ export default function ExpensesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a despesa "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{transactionToDelete?.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a despesa "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

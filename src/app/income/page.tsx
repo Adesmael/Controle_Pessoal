@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,48 +24,96 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/lib/supabaseClient';
 
 export default function IncomePage() {
   const [incomes, setIncomes] = useState<Transaction[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const storedIncomes = localStorage.getItem('financialFlowIncomes');
-    if (storedIncomes) {
-      setIncomes(JSON.parse(storedIncomes).map((t: Transaction) => ({...t, date: new Date(t.date)})));
+  async function fetchIncomes() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('type', 'income')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar receitas:', error);
+      toast({ title: 'Erro!', description: 'Não foi possível buscar as receitas.', variant: 'destructive' });
+      setIncomes([]);
+    } else {
+      setIncomes(data.map(t => ({...t, date: new Date(t.date)})));
     }
-    setHydrated(true);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    fetchIncomes();
   }, []);
 
-  useEffect(() => {
-    if (hydrated) {
-      localStorage.setItem('financialFlowIncomes', JSON.stringify(incomes));
-    }
-  }, [incomes, hydrated]);
+  const handleIncomeAdded = async (newIncomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
+    const incomeToInsert = {
+      id: crypto.randomUUID(),
+      type: 'income' as 'income',
+      description: newIncomeData.description,
+      amount: newIncomeData.amount,
+      date: format(newIncomeData.date, 'yyyy-MM-dd'),
+      source: newIncomeData.source,
+    };
 
-  const handleIncomeAdded = (newIncome: Transaction) => {
-    setIncomes((prevIncomes) => [newIncome, ...prevIncomes]);
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert([incomeToInsert])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao adicionar receita:', error);
+      toast({ title: 'Erro!', description: 'Não foi possível adicionar a receita.', variant: 'destructive' });
+    } else if (data) {
+      setIncomes((prevIncomes) => [{ ...data, date: new Date(data.date) }, ...prevIncomes]);
+      toast({
+        title: "Receita Adicionada!",
+        description: `A receita "${data.description}" foi adicionada com sucesso.`,
+      });
+    }
   };
 
   const openDeleteDialog = (transaction: Transaction) => {
     setTransactionToDelete(transaction);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (transactionToDelete) {
-      setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
-      toast({
-        title: "Receita Excluída!",
-        description: `A receita "${transactionToDelete.description}" foi excluída com sucesso.`,
-      });
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionToDelete.id);
+
+      if (error) {
+        console.error('Erro ao excluir receita:', error);
+        toast({ title: 'Erro!', description: 'Não foi possível excluir a receita.', variant: 'destructive' });
+      } else {
+        setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
+        toast({
+          title: "Receita Excluída!",
+          description: `A receita "${transactionToDelete.description}" foi excluída com sucesso.`,
+        });
+      }
       setTransactionToDelete(null); 
     }
   };
   
-  if (!hydrated) {
-     return <div className="flex justify-center items-center h-screen"><p>Carregando Página de Receitas...</p></div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando Receitas...</p>
+      </div>
+    );
   }
 
   return (
@@ -103,11 +151,11 @@ export default function IncomePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {incomes.slice(0, 10).map((income) => ( 
+                  {incomes.map((income) => ( 
                     <TableRow key={income.id}>
                       <TableCell className="font-medium">{income.description}</TableCell>
                       <TableCell className="text-green-600">
-                        {CURRENCY_SYMBOL}{income.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOL}{Number(income.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>{income.source || '-'}</TableCell>
@@ -137,7 +185,7 @@ export default function IncomePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{transactionToDelete?.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

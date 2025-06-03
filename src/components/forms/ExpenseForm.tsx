@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,15 +17,15 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useToast } from '@/hooks/use-toast';
 import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
-import type { Transaction } from '@/types';
+import type { Transaction } from '@/types'; // O tipo Transaction não é diretamente usado aqui, mas sim seus sub-campos.
 import React from 'react';
 
+// Esquema para validação do formulário
 const formSchema = z.object({
   description: z.string().min(2, { message: 'A descrição deve ter pelo menos 2 caracteres.' }).max(100),
   amount: z.coerce.number().positive({ message: 'O valor deve ser positivo.' }),
@@ -32,37 +33,32 @@ const formSchema = z.object({
   category: z.string({ required_error: 'Por favor, selecione uma categoria.' }),
 });
 
+// Tipo para os dados do formulário inferido do esquema Zod
+type ExpenseFormValues = z.infer<typeof formSchema>;
+
 interface ExpenseFormProps {
-  onExpenseAdded: (expense: Transaction) => void;
+  onExpenseAdded: (expenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => void;
 }
 
 export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
-  const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
-      amount: '' as unknown as number, // Initialize with empty string
+      amount: '' as unknown as number,
       date: new Date(),
       category: undefined,
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const newExpense: Transaction = {
-      id: Date.now().toString(), 
-      type: 'expense',
-      ...values,
-      amount: Number(values.amount) 
-    };
-    onExpenseAdded(newExpense);
-    toast({
-      title: 'Despesa Adicionada!',
-      description: `${values.description} de ${CURRENCY_SYMBOL}${values.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} foi registrada.`,
-      variant: 'default', 
+  function onSubmit(values: ExpenseFormValues) {
+    onExpenseAdded({
+      description: values.description,
+      amount: values.amount,
+      date: values.date,
+      category: values.category,
     });
     form.reset();
-    // Ensure amount is reset to empty string for controlled input
     form.setValue('amount', '' as unknown as number);
     form.setValue('date', new Date());
     form.setValue('category', undefined);
@@ -92,7 +88,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
             <FormItem>
               <FormLabel>Valor ({CURRENCY_SYMBOL})</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="ex: 50,00" {...field} step="0.01"/>
+                <Input type="number" placeholder="ex: 50,00" {...field} step="0.01" value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : field.value} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -163,29 +159,31 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
                 <PopoverContent className="w-full p-0">
                   <Command>
                     <CommandInput placeholder="Buscar categoria..." />
-                    <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
-                    <CommandGroup>
-                      {EXPENSE_CATEGORIES.map((category) => (
-                        <CommandItem
-                          value={category.label}
-                          key={category.value}
-                          onSelect={() => {
-                            form.setValue("category", category.value)
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              category.value === field.value
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
-                          <category.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                          {category.label}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                    <CommandList>
+                      <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                      <CommandGroup>
+                        {EXPENSE_CATEGORIES.map((category) => (
+                          <CommandItem
+                            value={category.label}
+                            key={category.value}
+                            onSelect={() => {
+                              form.setValue("category", category.value)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                category.value === field.value
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            <category.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                            {category.label}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>

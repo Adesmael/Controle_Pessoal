@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,31 +10,52 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { supabase } from '@/lib/supabaseClient';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const storedIncomes = JSON.parse(localStorage.getItem('financialFlowIncomes') || '[]').map((t: Transaction) => ({...t, date: new Date(t.date), type: 'income' as 'income' | 'expense'}));
-    const storedExpenses = JSON.parse(localStorage.getItem('financialFlowExpenses') || '[]').map((t: Transaction) => ({...t, date: new Date(t.date), type: 'expense' as 'income' | 'expense'}));
-    setAllTransactions([...storedIncomes, ...storedExpenses].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    setHydrated(true);
-  }, []);
+    async function fetchAllTransactions() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('date', { ascending: false });
 
-  if (!hydrated) {
-    return <div className="flex justify-center items-center h-screen"><p>Carregando Relatórios...</p></div>;
+      if (error) {
+        console.error('Erro ao buscar todas as transações:', error);
+        toast({ title: 'Erro!', description: 'Não foi possível buscar as transações para os relatórios.', variant: 'destructive' });
+        setAllTransactions([]);
+      } else {
+        setAllTransactions(data.map(t => ({...t, date: new Date(t.date)})));
+      }
+      setLoading(false);
+    }
+    fetchAllTransactions();
+  }, [toast]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando Relatórios...</p>
+      </div>
+    );
   }
 
   const totalIncome = allTransactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const totalExpenses = allTransactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const balance = totalIncome - totalExpenses;
 
@@ -124,7 +146,7 @@ export default function ReportsPage() {
                           : (transaction.source || '-')}
                       </TableCell>
                       <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                        {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   ))}
