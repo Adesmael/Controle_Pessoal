@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,14 +6,30 @@ import IncomeForm from '@/components/forms/IncomeForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Transaction } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
+import { Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export default function IncomePage() {
   const [incomes, setIncomes] = useState<Transaction[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const storedIncomes = localStorage.getItem('financialFlowIncomes');
@@ -30,6 +47,21 @@ export default function IncomePage() {
 
   const handleIncomeAdded = (newIncome: Transaction) => {
     setIncomes((prevIncomes) => [newIncome, ...prevIncomes]);
+  };
+
+  const openDeleteDialog = (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (transactionToDelete) {
+      setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
+      toast({
+        title: "Receita Excluída!",
+        description: `A receita "${transactionToDelete.description}" foi excluída com sucesso.`,
+      });
+      setTransactionToDelete(null); 
+    }
   };
   
   if (!hydrated) {
@@ -67,6 +99,7 @@ export default function IncomePage() {
                     <TableHead>Valor</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead>Fonte</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -78,6 +111,13 @@ export default function IncomePage() {
                       </TableCell>
                       <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>{income.source || '-'}</TableCell>
+                      <TableCell className="text-right">
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(income)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -91,6 +131,23 @@ export default function IncomePage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!transactionToDelete} onOpenChange={(isOpen) => { if(!isOpen) setTransactionToDelete(null)}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{transactionToDelete?.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
