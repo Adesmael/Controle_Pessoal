@@ -21,7 +21,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  // AlertDialogTrigger, // Removido pois não será mais usado diretamente na tabela
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabaseClient';
@@ -67,7 +67,7 @@ export default function ExpensesPage() {
     if (!supabase) return;
     setLoading(true);
     const expenseToInsert = {
-      id: crypto.randomUUID(), // Adiciona a geração de ID
+      id: crypto.randomUUID(), 
       type: 'expense' as 'expense',
       description: newExpenseData.description,
       amount: newExpenseData.amount,
@@ -202,16 +202,14 @@ export default function ExpensesPage() {
                         {getCategoryIcon(expense.category)}
                         {EXPENSE_CATEGORIES.find(cat => cat.value === expense.category)?.label || expense.category || '-'}
                       </TableCell>
-                      <TableCell> {/* Removido text-red-600 para usar o tema */}
+                      <TableCell> 
                         {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="text-right">
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
+                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

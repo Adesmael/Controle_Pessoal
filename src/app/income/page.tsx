@@ -21,7 +21,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  // AlertDialogTrigger, // Removido pois não será mais usado diretamente na tabela
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabaseClient';
@@ -67,7 +67,7 @@ export default function IncomePage() {
     if (!supabase) return;
     setLoading(true);
     const incomeToInsert = {
-      id: crypto.randomUUID(), // Adiciona a geração de ID
+      id: crypto.randomUUID(), 
       type: 'income' as 'income',
       description: newIncomeData.description,
       amount: newIncomeData.amount,
@@ -192,17 +192,15 @@ export default function IncomePage() {
                   {incomes.map((income) => ( 
                     <TableRow key={income.id}>
                       <TableCell className="font-medium">{income.description}</TableCell>
-                      <TableCell> {/* Removido text-green-600 para usar o tema */}
+                      <TableCell> 
                         {CURRENCY_SYMBOL}{Number(income.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>{income.source || '-'}</TableCell>
                       <TableCell className="text-right">
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(income)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
+                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(income)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
