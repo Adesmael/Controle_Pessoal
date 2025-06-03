@@ -8,90 +8,99 @@ body {
 
 @layer base {
   :root {
-    --background: 120 100% 97%; /* #F0FFF0 - Honeydew */
-    --foreground: 120 25% 20%; /* #263326 - Dark Green */
+    /* Light Theme - Sofisticado e Limpo */
+    --background: 0 0% 98%; /* #FAFAFA - Quase branco, muito limpo */
+    --foreground: 240 10% 3.9%; /* #09090B - Preto suave para texto */
 
-    --card: 120 75% 98%; /* #F7FBF7 - Lighter Honeydew */
-    --card-foreground: 120 25% 20%; /* #263326 */
+    --card: 0 0% 100%; /* #FFFFFF - Cards brancos */
+    --card-foreground: 240 10% 3.9%; /* #09090B */
 
-    --popover: 120 75% 98%; /* #F7FBF7 */
-    --popover-foreground: 120 25% 20%; /* #263326 */
+    --popover: 0 0% 100%; /* #FFFFFF */
+    --popover-foreground: 240 10% 3.9%; /* #09090B */
 
-    --primary: 120 73% 75%; /* #90EE90 - LightGreen */
-    --primary-foreground: 120 60% 25%; /* #2D592D - Dark Green for text on primary */
+    --primary: 142 71% 45%; /* #4CAF50 - Verde elegante e moderno */
+    --primary-foreground: 0 0% 98%; /* #FAFAFA - Texto claro para contraste */
 
-    --secondary: 120 60% 92%; /* #E1F5E1 - Lighter shade of primary hue */
-    --secondary-foreground: 120 30% 30%; /* #3D5C3D */
+    --secondary: 240 4.8% 95.9%; /* #F4F4F5 - Cinza claro para elementos secundários */
+    --secondary-foreground: 240 5.9% 10%; /* #1A1A1A */
 
-    --muted: 120 50% 95%; /* #ECF5EC */
-    --muted-foreground: 120 20% 40%; /* #596B59 */
+    --muted: 240 4.8% 95.9%; /* #F4F4F5 */
+    --muted-foreground: 240 3.8% 46.1%; /* #707070 - Cinza médio para texto suave */
 
-    --accent: 200 53% 79%; /* #ADD8E6 - LightBlue */
-    --accent-foreground: 200 30% 25%; /* #46616D - Dark Blue for text on accent */
+    --accent: 217 91% 60%; /* #2563EB - Azul vibrante para acentos, comum em UI moderna */
+    --accent-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%; /* Vermelho padrão para alertas */
+    --destructive-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --border: 120 40% 88%; /* #D4EBD4 */
-    --input: 120 50% 94%; /* #EAF3EA */
-    --ring: 120 73% 65%; /* #76DE76 - Slightly darker primary for focus */
+    --border: 240 5.9% 90%; /* #E4E4E7 - Borda cinza clara */
+    --input: 240 5.9% 90%; /* #E4E4E7 - Fundo de input */
+    --ring: 142 71% 45%; /* Verde primário para anel de foco */
 
-    --chart-1: 120 70% 60%;
-    --chart-2: 200 60% 70%;
-    --chart-3: 45 70% 60%;
-    --chart-4: 280 60% 70%;
-    --chart-5: 0 70% 70%;
+    --chart-1: var(--primary); /* 142 71% 45% */
+    --chart-2: 217 80% 65%; /* Azul um pouco mais claro que o accent */
+    --chart-3: 45 70% 60%; /* Amarelo/Laranja */
+    --chart-4: 280 60% 70%; /* Roxo/Magenta */
+    --chart-5: 0 70% 70%; /* Vermelho suave */
 
-    --radius: 0.5rem;
+    --radius: 0.5rem; /* Mantendo o raio padrão */
 
     /* Sidebar specific colors - Light Theme */
-    --sidebar-background: 120 60% 95%; /* #EBF5EB - A light green, distinct from main BG */
-    --sidebar-foreground: 120 25% 25%; /* #334033 - Darker text for sidebar */
+    --sidebar-background: 240 4.8% 96.5%; /* #F5F5F7 - Um cinza muito levemente azulado/distinto */
+    --sidebar-foreground: var(--foreground);
     --sidebar-primary: var(--primary);
     --sidebar-primary-foreground: var(--primary-foreground);
-    --sidebar-accent: 120 70% 90%; /* #D9F2D9 - Hover effects for menu items */
-    --sidebar-accent-foreground: 120 50% 20%; /* #264026 */
-    --sidebar-border: 120 30% 85%; /* #CDE0CD */
+    --sidebar-accent: 240 4.8% 92%; /* #EAEAEF - Hover mais sutil */
+    --sidebar-accent-foreground: var(--primary);
+    --sidebar-border: 240 5.9% 88%; /* #DFDFE2 */
     --sidebar-ring: var(--ring);
   }
 
   .dark {
-    --background: 120 10% 10%; /* #171A17 - Very dark desaturated green */
-    --foreground: 120 40% 90%; /* #DDE8DD - Light desaturated green */
+    /* Dark Theme - Sofisticado e Limpo */
+    --background: 240 10% 3.9%; /* #09090B - Preto suave */
+    --foreground: 0 0% 98%; /* #FAFAFA - Texto claro */
 
-    --card: 120 10% 12%; /* #1A1E1A */
-    --card-foreground: 120 40% 90%; /* #DDE8DD */
+    --card: 240 3.7% 15.9%; /* #27272A - Cinza escuro para cards */
+    --card-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --popover: 120 10% 12%; /* #1A1E1A */
-    --popover-foreground: 120 40% 90%; /* #DDE8DD */
+    --popover: 240 3.7% 15.9%; /* #27272A */
+    --popover-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --primary: 120 50% 60%; /* #7ACC7A - Pleasant green on dark */
-    --primary-foreground: 120 80% 15%; /* #1A3D1A - Very dark green text */
+    --primary: 142 61% 55%; /* #57C75B - Verde um pouco mais brilhante para dark mode */
+    --primary-foreground: 240 10% 3.9%; /* #09090B */
 
-    --secondary: 120 10% 18%; /* #262B26 */
-    --secondary-foreground: 120 30% 70%; /* #A8C2A8 */
+    --secondary: 240 3.7% 15.9%; /* #27272A */
+    --secondary-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --muted: 120 8% 15%; /* #212421 */
-    --muted-foreground: 120 20% 50%; /* #737D73 */
+    --muted: 240 3.7% 15.9%; /* #27272A */
+    --muted-foreground: 240 5% 64.9%; /* #A1A1AA - Cinza claro para texto suave */
 
-    --accent: 200 40% 65%; /* #81AEC4 - Pleasant blue on dark */
-    --accent-foreground: 200 60% 15%; /* #1B313D - Very dark blue text */
+    --accent: 217 91% 65%; /* #3B82F6 - Azul um pouco mais brilhante para dark mode */
+    --accent-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 72.2% 50.6%; /* Vermelho padrão para alertas */
+    --destructive-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --border: 120 8% 22%; /* #313631 */
-    --input: 120 8% 20%; /* #2B2E2B */
-    --ring: 120 50% 50%; /* #66B366 - Focus ring for dark primary */
+    --border: 240 3.7% 15.9%; /* #27272A */
+    --input: 240 3.7% 15.9%; /* #27272A */
+    --ring: 142 61% 55%; /* Verde primário para anel de foco */
+
+    /* Chart colors for dark theme should be distinct */
+    --chart-1: var(--primary); /* 142 61% 55% */
+    --chart-2: 217 81% 70%; /* Azul de gráfico para dark mode */
+    --chart-3: 45 80% 65%;
+    --chart-4: 280 70% 75%;
+    --chart-5: 0 80% 75%;
 
     /* Sidebar specific colors - Dark Theme */
-    --sidebar-background: 120 10% 14%; /* #1E231E - Slightly distinct dark for sidebar */
-    --sidebar-foreground: 120 40% 85%; /* #CFE0CF */
+    --sidebar-background: 240 5% 10%; /* #161618 - Um pouco mais claro que o BG principal */
+    --sidebar-foreground: var(--foreground);
     --sidebar-primary: var(--primary);
     --sidebar-primary-foreground: var(--primary-foreground);
-    --sidebar-accent: 120 10% 20%; /* #2B2E2B - Hover for dark sidebar */
-    --sidebar-accent-foreground: 120 50% 90%; /* #D9F2D9 */
-    --sidebar-border: 120 8% 25%; /* #363B36 */
+    --sidebar-accent: 240 3.7% 20%; /* #303033 - Hover mais sutil */
+    --sidebar-accent-foreground: var(--primary);
+    --sidebar-border: 240 3.7% 20%; /* #303033 */
     --sidebar-ring: var(--ring);
   }
 }
