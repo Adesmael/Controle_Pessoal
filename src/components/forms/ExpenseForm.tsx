@@ -42,7 +42,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
-      amount: undefined,
+      amount: '' as unknown as number, // Initialize with empty string
       date: new Date(),
       category: undefined,
     },
@@ -62,6 +62,11 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
       variant: 'default', 
     });
     form.reset();
+    // Ensure amount is reset to empty string for controlled input
+    form.setValue('amount', '' as unknown as number);
+    form.setValue('date', new Date());
+    form.setValue('category', undefined);
+    form.setValue('description', '');
   }
 
   return (

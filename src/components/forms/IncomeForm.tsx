@@ -42,7 +42,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
-      amount: undefined,
+      amount: '' as unknown as number, // Initialize with empty string
       date: new Date(),
       source: '',
     },
@@ -61,6 +61,11 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
       description: `${values.description} de ${CURRENCY_SYMBOL}${values.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} foi registrada.`,
     });
     form.reset();
+    // Ensure amount is reset to empty string for controlled input
+    form.setValue('amount', '' as unknown as number);
+    form.setValue('date', new Date());
+    form.setValue('source', '');
+    form.setValue('description', '');
   }
 
   return (
