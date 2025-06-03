@@ -51,10 +51,14 @@ export default function IncomePage() {
 
     if (error) {
       console.error('Erro ao buscar receitas:', error);
-      toast({ title: 'Erro!', description: 'Não foi possível buscar as receitas.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao buscar receitas!', 
+        description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados.', 
+        variant: 'destructive' 
+      });
       setIncomes([]);
     } else if (data) {
-      setIncomes(data.map(t => ({...t, date: new Date(t.date), type: t.type as TransactionType })));
+      setIncomes(data.map(t => ({...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
     }
     setLoading(false);
   }
@@ -63,6 +67,7 @@ export default function IncomePage() {
     if (!supabase) return;
     setLoading(true);
     const incomeToInsert = {
+      id: crypto.randomUUID(), // Adiciona a geração de ID
       type: 'income' as 'income',
       description: newIncomeData.description,
       amount: newIncomeData.amount,
@@ -79,9 +84,13 @@ export default function IncomePage() {
     setLoading(false);
     if (error) {
       console.error('Erro ao adicionar receita:', error);
-      toast({ title: 'Erro!', description: 'Não foi possível adicionar a receita.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao adicionar receita!', 
+        description: error.message || 'Não foi possível salvar a receita no banco de dados.', 
+        variant: 'destructive' 
+      });
     } else if (data) {
-      setIncomes((prevIncomes) => [{ ...data, date: new Date(data.date), type: data.type as TransactionType }, ...prevIncomes]);
+      setIncomes((prevIncomes) => [{ ...data, id: data.id as string, date: new Date(data.date), type: data.type as TransactionType }, ...prevIncomes]);
       toast({
         title: "Receita Adicionada!",
         description: `A receita "${data.description}" foi adicionada com sucesso.`,
@@ -104,7 +113,11 @@ export default function IncomePage() {
     setLoading(false);
     if (error) {
       console.error('Erro ao excluir receita:', error);
-      toast({ title: 'Erro!', description: 'Não foi possível excluir a receita.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao excluir receita!', 
+        description: error.message || 'Não foi possível remover a receita do banco de dados.', 
+        variant: 'destructive' 
+      });
     } else {
       setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
       toast({
@@ -179,7 +192,7 @@ export default function IncomePage() {
                   {incomes.map((income) => ( 
                     <TableRow key={income.id}>
                       <TableCell className="font-medium">{income.description}</TableCell>
-                      <TableCell className="text-green-600">
+                      <TableCell> {/* Removido text-green-600 para usar o tema */}
                         {CURRENCY_SYMBOL}{Number(income.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
@@ -224,3 +237,4 @@ export default function IncomePage() {
     </div>
   );
 }
+

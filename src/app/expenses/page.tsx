@@ -51,10 +51,14 @@ export default function ExpensesPage() {
 
     if (error) {
       console.error('Erro ao buscar despesas:', error);
-      toast({ title: 'Erro!', description: 'Não foi possível buscar as despesas.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao buscar despesas!', 
+        description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados.', 
+        variant: 'destructive' 
+      });
       setExpenses([]);
     } else if (data) {
-      setExpenses(data.map(t => ({...t, date: new Date(t.date), type: t.type as TransactionType })));
+      setExpenses(data.map(t => ({...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
     }
     setLoading(false);
   }
@@ -63,6 +67,7 @@ export default function ExpensesPage() {
     if (!supabase) return;
     setLoading(true);
     const expenseToInsert = {
+      id: crypto.randomUUID(), // Adiciona a geração de ID
       type: 'expense' as 'expense',
       description: newExpenseData.description,
       amount: newExpenseData.amount,
@@ -79,9 +84,13 @@ export default function ExpensesPage() {
     setLoading(false);
     if (error) {
       console.error('Erro ao adicionar despesa:', error);
-      toast({ title: 'Erro!', description: 'Não foi possível adicionar a despesa.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao adicionar despesa!', 
+        description: error.message || 'Não foi possível salvar a despesa no banco de dados.', 
+        variant: 'destructive' 
+      });
     } else if (data) {
-      setExpenses((prevExpenses) => [{ ...data, date: new Date(data.date), type: data.type as TransactionType }, ...prevExpenses]);
+      setExpenses((prevExpenses) => [{ ...data, id: data.id as string, date: new Date(data.date), type: data.type as TransactionType }, ...prevExpenses]);
       toast({
         title: "Despesa Adicionada!",
         description: `A despesa "${data.description}" foi adicionada com sucesso.`,
@@ -104,7 +113,11 @@ export default function ExpensesPage() {
     setLoading(false);
     if (error) {
       console.error('Erro ao excluir despesa:', error);
-      toast({ title: 'Erro!', description: 'Não foi possível excluir a despesa.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao excluir despesa!', 
+        description: error.message || 'Não foi possível remover a despesa do banco de dados.', 
+        variant: 'destructive' 
+      });
     } else {
       setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
       toast({
@@ -189,7 +202,7 @@ export default function ExpensesPage() {
                         {getCategoryIcon(expense.category)}
                         {EXPENSE_CATEGORIES.find(cat => cat.value === expense.category)?.label || expense.category || '-'}
                       </TableCell>
-                      <TableCell className="text-red-600">
+                      <TableCell> {/* Removido text-red-600 para usar o tema */}
                         {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
@@ -233,3 +246,4 @@ export default function ExpensesPage() {
     </div>
   );
 }
+

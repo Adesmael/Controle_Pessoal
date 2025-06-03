@@ -39,10 +39,14 @@ export default function DashboardPage() {
 
     if (error) {
       console.error('Erro ao buscar transações:', error);
-      toast({ title: 'Erro!', description: 'Não foi possível buscar as transações para o painel.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao buscar transações!', 
+        description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados para o painel.', 
+        variant: 'destructive' 
+      });
       setTransactions([]);
     } else if (data) {
-      setTransactions(data.map(t => ({ ...t, date: new Date(t.date), type: t.type as TransactionType })));
+      setTransactions(data.map(t => ({ ...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
     }
     setLoading(false);
   }
@@ -130,7 +134,7 @@ export default function DashboardPage() {
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold font-body ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-2xl font-bold font-body ${balance >= 0 ? '' : 'text-destructive'}`}> {/* Cor baseada no tema */}
               {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">Sua saúde financeira</p>
@@ -165,7 +169,7 @@ export default function DashboardPage() {
                         {transaction.type === 'income' ? 'Receita' : 'Despesa'}
                       </span>
                     </TableCell>
-                    <TableCell className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
+                    <TableCell className={transaction.type === 'income' ? '' : 'text-destructive'}> {/* Cor baseada no tema */}
                       {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
@@ -184,3 +188,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

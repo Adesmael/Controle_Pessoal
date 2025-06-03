@@ -35,10 +35,14 @@ export default function ReportsPage() {
 
       if (error) {
         console.error('Erro ao buscar todas as transações:', error);
-        toast({ title: 'Erro!', description: 'Não foi possível buscar as transações para os relatórios.', variant: 'destructive' });
+        toast({ 
+          title: 'Erro ao buscar transações!', 
+          description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados para os relatórios.', 
+          variant: 'destructive' 
+        });
         setAllTransactions([]);
       } else if (data) {
-        setAllTransactions(data.map(t => ({...t, date: new Date(t.date), type: t.type as TransactionType })));
+        setAllTransactions(data.map(t => ({...t, id: t.id as string, date: new Date(t.date), type: t.type as TransactionType })));
       }
       setLoading(false);
     }
@@ -119,7 +123,7 @@ export default function ReportsPage() {
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-             <div className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+             <div className={`text-2xl font-bold ${balance >= 0 ? '' : 'text-destructive'}`}> {/* Cor baseada no tema */}
               {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -167,7 +171,7 @@ export default function ReportsPage() {
                           ? (EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
                           : (transaction.source || '-')}
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                      <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? '' : 'text-destructive'}`}> {/* Cor baseada no tema */}
                         {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
@@ -186,3 +190,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+
