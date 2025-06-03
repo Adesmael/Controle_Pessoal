@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -24,9 +25,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
 import Logo from '@/components/Logo';
-import { cn } from '@/lib/utils';
+import MobileNavigation from '@/components/layout/MobileNavigation'; // Novo componente
 
 export const metadata: Metadata = {
   title: 'Fluxo Financeiro',
@@ -54,6 +54,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <SidebarProvider defaultOpen={true}>
+          {/* Sidebar para Desktop - oculta em mobile (md:block) */}
           <Sidebar collapsible="icon" variant="sidebar" side="left" className="border-r">
             <SidebarHeader>
               <Logo />
@@ -105,21 +106,26 @@ export default function RootLayout({
               </SidebarMenu>
             </SidebarFooter>
           </Sidebar>
+
+          {/* Conteúdo principal e header mobile */}
           <SidebarInset>
             <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6 md:hidden">
-              <SidebarTrigger className="md:hidden">
+              <SidebarTrigger className="md:hidden"> {/* Este trigger é para a sidebar principal, que está oculta em mobile */}
                  <ToggleIcon />
               </SidebarTrigger>
               <div className="flex-1">
                 <h1 className="font-headline text-lg font-semibold">Fluxo Financeiro</h1>
               </div>
             </header>
-            <main className="flex-1 p-4 sm:p-6">
+            {/* Ajuste no padding inferior para mobile para não sobrepor a MobileNavigation */}
+            <main className="flex-1 p-4 pb-20 sm:p-6 md:pb-6">
               {children}
             </main>
           </SidebarInset>
         </SidebarProvider>
         <Toaster />
+        {/* Navegação inferior para mobile - visível apenas em mobile (md:hidden internamente) */}
+        <MobileNavigation />
       </body>
     </html>
   );
