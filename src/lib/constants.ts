@@ -40,11 +40,9 @@ export const INCOME_SOURCES: IncomeSource[] = [
 
 export const CURRENCY_SYMBOL = 'R$';
 export const MONTHLY_SPENDING_GOAL_KEY = 'monthlySpendingGoal';
-// Removidas constantes da Evolution API e WhatsApp
-// export const WHATSAPP_ALERT_NUMBER_KEY = 'whatsappAlertNumber';
-// export const EVOLUTION_API_URL_KEY = 'evolutionApiUrl';
-// export const EVOLUTION_API_INSTANCE_KEY = 'evolutionApiInstance';
-// export const EVOLUTION_API_KEY_KEY = 'evolutionApiKey';
+
+export const GOOGLE_API_KEY_MISSING_ERROR = "Erro: A chave de API do Google (GOOGLE_API_KEY) não foi configurada ou é inválida. Verifique seu arquivo .env.local e reinicie os servidores (Next.js e Genkit) ou verifique o console do servidor Genkit para mais detalhes.";
 
 
 export { Settings as SettingsIcon };
+

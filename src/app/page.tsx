@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
-import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
+import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY, GOOGLE_API_KEY_MISSING_ERROR } from '@/lib/constants';
 import { format, subDays, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,8 +65,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (transactions.length > 0) {
       calculateCurrentMonthExpenses();
+    } else if (!loading && transactions.length === 0) {
+      setCurrentMonthExpenses(0); // Reset if no transactions
     }
-  }, [transactions, monthlyGoal]); 
+  }, [transactions, monthlyGoal, loading]); 
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -126,34 +128,39 @@ export default function DashboardPage() {
     setCurrentMonthExpenses(expensesThisMonth);
   }
   
-  const totalIncome = transactions
+  const totalIncome = useMemo(() => transactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
 
-  const totalExpenses = transactions
+  const totalExpenses = useMemo(() => transactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
 
-  const balance = totalIncome - totalExpenses;
+  const balance = useMemo(() => totalIncome - totalExpenses, [totalIncome, totalExpenses]);
+
+  const { incomeLast30Days, expensesLast30Days } = useMemo(() => {
+    const today = new Date();
+    const thirtyDaysAgo = subDays(today, 30);
+
+    const last30DaysTransactions = transactions.filter(t => {
+      const transactionDate = t.date;
+      return isValid(transactionDate) && transactionDate >= thirtyDaysAgo && transactionDate <= today;
+    });
+
+    const income = last30DaysTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const expenses = last30DaysTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+    return { incomeLast30Days: income, expensesLast30Days: expenses };
+  }, [transactions]);
+
 
   useEffect(() => {
     if (transactions.length > 0 && supabase && !loading) { 
-      const today = new Date();
-      const thirtyDaysAgo = subDays(today, 30);
-
-      const last30DaysTransactions = transactions.filter(t => {
-        const transactionDate = t.date;
-        return isValid(transactionDate) && transactionDate >= thirtyDaysAgo && transactionDate <= today;
-      });
-
-      const incomeLast30Days = last30DaysTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-
-      const expensesLast30Days = last30DaysTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-
       const calculateTrendAndProjection = async () => {
         setTrendAnalysisLoading(true);
         setTrendAnalysisError(null);
@@ -173,7 +180,7 @@ export default function DashboardPage() {
           console.error('Error fetching trend analysis:', error);
           let errorMessage = 'Falha ao obter análise de tendência.';
           if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
-            errorMessage = 'Falha ao buscar análise de tendência. Verifique se o servidor Genkit está rodando e se a GOOGLE_API_KEY está configurada corretamente. Consulte o console do servidor Genkit para mais detalhes.';
+            errorMessage = GOOGLE_API_KEY_MISSING_ERROR;
           } else if (error.message) {
             errorMessage = error.message;
           }
@@ -187,7 +194,14 @@ export default function DashboardPage() {
       const fetchFinancialAdvice = async () => {
         setAdviceLoading(true);
         setAdviceError(null);
-        setFinancialAdvice(null); 
+        setFinancialAdvice(null);
+
+        const today = new Date();
+        const thirtyDaysAgo = subDays(today, 30);
+        const last30DaysTransactions = transactions.filter(t => {
+          const transactionDate = t.date;
+          return isValid(transactionDate) && transactionDate >= thirtyDaysAgo && transactionDate <= today;
+        });
 
         const expenseBreakdownData: ExpenseCategoryDetail[] = EXPENSE_CATEGORIES.map(categoryConst => {
           const categoryExpenses = last30DaysTransactions
@@ -214,8 +228,8 @@ export default function DashboardPage() {
         } catch (error: any) {
           console.error('Error fetching financial advice:', error);
           let errorMessage = 'Falha ao obter recomendações financeiras.';
-          if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
-            errorMessage = 'Falha ao buscar recomendações. Verifique se o servidor Genkit está rodando e se a GOOGLE_API_KEY está configurada. Consulte o console do servidor Genkit para detalhes.';
+           if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
+            errorMessage = GOOGLE_API_KEY_MISSING_ERROR;
           } else if (error.message) {
             errorMessage = error.message;
           }
@@ -245,7 +259,7 @@ export default function DashboardPage() {
       setAdviceLoading(false);
       setAdviceError(null);
     }
-  }, [transactions, balance, loading, supabase]);
+  }, [transactions, balance, loading, supabase, incomeLast30Days, expensesLast30Days]);
 
   const getGoalProgress = () => {
     if (monthlyGoal === null || monthlyGoal <= 0) return 0;
@@ -445,7 +459,7 @@ export default function DashboardPage() {
               <Lightbulb className="h-5 w-5 text-yellow-500" />
             </CardHeader>
             <CardContent className="min-h-[120px]">
-              { (loading || (trendAnalysisLoading && transactions.length > 0 && !projectedBalanceNext30Days) ) && !trendAnalysisError && (
+              { (loading || (trendAnalysisLoading && transactions.length > 0 && projectedBalanceNext30Days === null) ) && !trendAnalysisError && (
                   <div className="flex items-center space-x-2 py-4">
                       <Loader2 className="h-5 w-5 animate-spin text-primary" />
                       <span>{loading && transactions.length === 0 ? 'Carregando dados...' : 'Analisando...'}</span>
