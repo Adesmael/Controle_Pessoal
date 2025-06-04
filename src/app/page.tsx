@@ -5,10 +5,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
-import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { format, subDays, isValid } from 'date-fns';
+import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
+import { format, subDays, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from 'next/image';
@@ -16,7 +16,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { getFinancialTrend, type FinancialTrendInput, type FinancialTrendOutput } from '@/ai/flows/financial-trend-flow';
 import { getFinancialAdvice, type FinancialAdviceInput, type FinancialAdviceOutput, type ExpenseCategoryDetail } from '@/ai/flows/financial-advice-flow';
-
+import { Progress } from "@/components/ui/progress";
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -32,13 +32,53 @@ export default function DashboardPage() {
   const [adviceLoading, setAdviceLoading] = useState(false);
   const [adviceError, setAdviceError] = useState<string | null>(null);
 
+  const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
+  const [currentMonthExpenses, setCurrentMonthExpenses] = useState<number>(0);
+
   useEffect(() => {
     if (!supabase) {
       setLoading(false);
       return;
     }
     fetchTransactions();
+    loadMonthlyGoal();
   }, []);
+
+  function loadMonthlyGoal() {
+    const storedGoal = localStorage.getItem(MONTHLY_SPENDING_GOAL_KEY);
+    if (storedGoal) {
+      const parsedGoal = parseFloat(storedGoal);
+      if (!isNaN(parsedGoal) && parsedGoal > 0) {
+        setMonthlyGoal(parsedGoal);
+      } else {
+        setMonthlyGoal(null);
+      }
+    } else {
+      setMonthlyGoal(null);
+    }
+  }
+  
+  useEffect(() => {
+    // Recalculate current month expenses when transactions change or goal is loaded/reloaded
+    // This ensures currentMonthExpenses is up-to-date if transactions are fetched after goal load.
+    if (transactions.length > 0) {
+      calculateCurrentMonthExpenses();
+    }
+  }, [transactions, monthlyGoal]); // Rerun if transactions or monthlyGoal changes
+
+  // Listener for localStorage changes from other tabs/windows (optional but good for UX)
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === MONTHLY_SPENDING_GOAL_KEY) {
+        loadMonthlyGoal(); // Reload goal if it changes in another tab
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
 
   async function fetchTransactions() {
     if (!supabase) return;
@@ -57,14 +97,30 @@ export default function DashboardPage() {
       });
       setTransactions([]);
     } else if (data) {
-      setTransactions(data.map(t => {
-        if (!t.date) return { ...t, id: t.id as string, date: new Date(), type: t.type as TransactionType }; // Fallback for invalid date
+      const formattedTransactions = data.map(t => {
+        if (!t.date) return { ...t, id: t.id as string, date: new Date(), type: t.type as TransactionType }; 
         const [year, month, day] = (t.date as string).split('-').map(Number);
         const transactionDate = new Date(year, month - 1, day);
         return { ...t, id: t.id as string, date: isValid(transactionDate) ? transactionDate : new Date(), type: t.type as TransactionType };
-      }));
+      });
+      setTransactions(formattedTransactions);
     }
     setLoading(false);
+  }
+
+  function calculateCurrentMonthExpenses() {
+    const today = new Date();
+    const firstDayOfMonth = startOfMonth(today);
+    const lastDayOfMonth = endOfMonth(today);
+
+    const expensesThisMonth = transactions
+      .filter(t => 
+        t.type === 'expense' && 
+        isValid(t.date) &&
+        isWithinInterval(t.date, { start: firstDayOfMonth, end: lastDayOfMonth })
+      )
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    setCurrentMonthExpenses(expensesThisMonth);
   }
   
   const totalIncome = transactions
@@ -84,7 +140,7 @@ export default function DashboardPage() {
 
       const last30DaysTransactions = transactions.filter(t => {
         const transactionDate = t.date;
-        return transactionDate >= thirtyDaysAgo && transactionDate <= today;
+        return isValid(transactionDate) && transactionDate >= thirtyDaysAgo && transactionDate <= today;
       });
 
       const incomeLast30Days = last30DaysTransactions
@@ -95,7 +151,6 @@ export default function DashboardPage() {
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + Number(t.amount), 0);
 
-      // Trend Analysis and Projection
       const calculateTrendAndProjection = async () => {
         setTrendAnalysisLoading(true);
         setTrendAnalysisError(null);
@@ -119,7 +174,6 @@ export default function DashboardPage() {
         }
       };
 
-      // Financial Advice
       const fetchFinancialAdvice = async () => {
         setAdviceLoading(true);
         setAdviceError(null);
@@ -135,7 +189,7 @@ export default function DashboardPage() {
             totalAmount: categoryExpenses,
             percentageOfTotalExpenses: expensesLast30Days > 0 ? (categoryExpenses / expensesLast30Days) * 100 : 0,
           };
-        }).filter(detail => detail.totalAmount > 0); // Only include categories with expenses
+        }).filter(detail => detail.totalAmount > 0); 
 
         try {
           const adviceInput: FinancialAdviceInput = {
@@ -155,9 +209,15 @@ export default function DashboardPage() {
         }
       };
       
-      calculateTrendAndProjection();
-      fetchFinancialAdvice();
-
+      if (incomeLast30Days > 0 || expensesLast30Days > 0) {
+         calculateTrendAndProjection();
+         fetchFinancialAdvice();
+      } else {
+        setTrendAnalysisLoading(false);
+        setAdviceLoading(false);
+        setTrendAnalysis("Sem movimentações recentes para análise de tendência.");
+        setFinancialAdvice(["Sem movimentações recentes para gerar recomendações."]);
+      }
     } else if (!loading && transactions.length === 0) {
       setProjectedBalanceNext30Days(null);
       setTrendAnalysis(null);
@@ -168,6 +228,30 @@ export default function DashboardPage() {
       setAdviceError(null);
     }
   }, [transactions, balance, loading, supabase]);
+
+  const getGoalProgress = () => {
+    if (monthlyGoal === null || monthlyGoal <= 0) return 0;
+    return (currentMonthExpenses / monthlyGoal) * 100;
+  };
+
+  const goalProgress = getGoalProgress();
+  let goalProgressColor = "bg-green-500"; // Cor padrão (verde)
+  let goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de ${CURRENCY_SYMBOL}${monthlyGoal?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
+  let remainingAmount = monthlyGoal ? monthlyGoal - currentMonthExpenses : 0;
+
+  if (monthlyGoal !== null && monthlyGoal > 0) {
+    if (goalProgress >= 100) {
+      goalProgressColor = "bg-red-500"; // Vermelho
+      goalStatusMessage = `Meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ultrapassada em ${CURRENCY_SYMBOL}${Math.abs(remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!`;
+    } else if (goalProgress >= 75) {
+      goalProgressColor = "bg-yellow-500"; // Amarelo
+      goalStatusMessage = `Atenção! Você já gastou ${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${goalProgress.toFixed(0)}%) da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
+    } else {
+        goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${goalProgress.toFixed(0)}%) da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Restam ${CURRENCY_SYMBOL}${remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+  } else {
+      goalStatusMessage = "Defina uma meta de gastos mensais na página de Configurações para acompanhar seu progresso.";
+  }
 
 
   if (!supabase) {
@@ -187,7 +271,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (loading) {
+  if (loading && transactions.length === 0) { // Só mostra loading full screen se não houver transações ainda
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -250,6 +334,56 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+                <CardTitle className="font-headline font-bold text-base flex items-center">
+                    <Target className="mr-2 h-5 w-5 text-blue-500" />
+                    Meta de Gastos Mensal
+                </CardTitle>
+                {monthlyGoal !== null && (
+                    <CardDescription className="text-xs mt-1">
+                        Meta definida: {CURRENCY_SYMBOL}{monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </CardDescription>
+                )}
+            </div>
+            <Button variant="ghost" size="sm" asChild className="text-xs -mt-1 -mr-2">
+                <Link href="/settings">
+                    <Edit3 className="mr-1 h-3 w-3" /> {monthlyGoal !== null ? "Editar Meta" : "Definir Meta"}
+                </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading && monthlyGoal === null ? (
+             <div className="flex items-center space-x-2 py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span>Carregando dados da meta...</span>
+            </div>
+          ) : monthlyGoal !== null && monthlyGoal > 0 ? (
+            <>
+              <Progress value={goalProgress > 100 ? 100 : goalProgress} className="w-full h-3 mb-2" 
+                indicatorClassName={goalProgressColor} // Pass custom class for indicator
+              />
+              <p className="text-sm text-muted-foreground">{goalStatusMessage}</p>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <Target className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Você ainda não definiu uma meta de gastos para o mês.
+              </p>
+              <Button asChild>
+                <Link href="/settings">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Definir Meta Agora
+                </Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       
       {supabase && (
       <div className="grid gap-6 md:grid-cols-2">
@@ -262,7 +396,7 @@ export default function DashboardPage() {
               { (loading || (trendAnalysisLoading && transactions.length > 0) ) && !trendAnalysisError && (
                   <div className="flex items-center space-x-2 py-4">
                       <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <span>{loading ? 'Carregando dados...' : 'Analisando tendências...'}</span>
+                      <span>{loading && transactions.length === 0 ? 'Carregando dados...' : 'Analisando tendências...'}</span>
                   </div>
               )}
               {!loading && transactions.length === 0 && !trendAnalysisLoading && (
@@ -307,7 +441,7 @@ export default function DashboardPage() {
               { (loading || (adviceLoading && transactions.length > 0) ) && !adviceError && (
                   <div className="flex items-center space-x-2 py-4">
                       <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <span>{loading ? 'Carregando dados...' : 'Gerando recomendações...'}</span>
+                      <span>{loading && transactions.length === 0 ? 'Carregando dados...' : 'Gerando recomendações...'}</span>
                   </div>
               )}
               {!loading && transactions.length === 0 && !adviceLoading && (
@@ -375,7 +509,7 @@ export default function DashboardPage() {
             </Table>
           ) : (
             <div className="text-center py-10">
-               <Image src="https://placehold.co/300x200.png" alt="Nenhuma transação" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="ilustração vazia" />
+               <Image src="https://placehold.co/300x200.png" alt="Nenhuma transação" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="ilustração vazia"/>
               <p className="text-muted-foreground">Nenhuma transação ainda. Comece adicionando receitas ou despesas!</p>
             </div>
           )}

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, TrendingDown, BarChart3, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/income', label: 'Receitas', icon: TrendingUp },
   { href: '/expenses', label: 'Despesas', icon: TrendingDown },
   { href: '/reports', label: 'Relatórios', icon: BarChart3 },
+  { href: '/settings', label: 'Ajustes', icon: Settings },
 ];
 
 export default function MobileNavigation() {

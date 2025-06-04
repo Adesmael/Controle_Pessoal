@@ -1,3 +1,4 @@
+
 import type { ExpenseCategory, IncomeSource } from '@/types';
 import {
   Utensils,
@@ -12,7 +13,8 @@ import {
   Briefcase,
   Gift,
   Landmark,
-  DollarSign
+  DollarSign,
+  Settings // Adicionado para a nova página
 } from 'lucide-react';
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
@@ -37,4 +39,7 @@ export const INCOME_SOURCES: IncomeSource[] = [
 ];
 
 export const CURRENCY_SYMBOL = 'R$'; // Símbolo da moeda brasileira
+export const MONTHLY_SPENDING_GOAL_KEY = 'monthlySpendingGoal';
 
+// Ícone para a página de configurações
+export { Settings as SettingsIcon };
