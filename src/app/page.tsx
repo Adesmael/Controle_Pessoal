@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3, MessageCircleWarning } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY, WHATSAPP_ALERT_NUMBER_KEY } from '@/lib/constants';
 import { format, subDays, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getFinancialTrend, type FinancialTrendInput, type FinancialTrendOutput } from '@/ai/flows/financial-trend-flow';
 import { getFinancialAdvice, type FinancialAdviceInput, type FinancialAdviceOutput, type ExpenseCategoryDetail } from '@/ai/flows/financial-advice-flow';
 import { Progress } from "@/components/ui/progress";
+import { sendWhatsappAlert } from '@/ai/actions/sendAlert'; // Importando a nova ação
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -34,9 +35,8 @@ export default function DashboardPage() {
 
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [currentMonthExpenses, setCurrentMonthExpenses] = useState<number>(0);
-  const [whatsappAlertNumber, setWhatsappAlertNumber] = useState<string | null>(null);
+  const [whatsappRecipientNumber, setWhatsappRecipientNumber] = useState<string | null>(null);
 
-  // Refs para controlar se os alertas de meta já foram disparados
   const alert85DispatchedRef = useRef(false);
   const alert100DispatchedRef = useRef(false);
 
@@ -48,7 +48,7 @@ export default function DashboardPage() {
     }
     fetchTransactions();
     loadMonthlyGoal();
-    loadWhatsappAlertNumber();
+    loadWhatsappRecipientNumber();
   }, []);
 
   function loadMonthlyGoal() {
@@ -65,9 +65,10 @@ export default function DashboardPage() {
     }
   }
 
-  function loadWhatsappAlertNumber() {
+  function loadWhatsappRecipientNumber() {
+    const envNumber = process.env.NEXT_PUBLIC_WHATSAPP_RECIPIENT_NUMBER;
     const storedNumber = localStorage.getItem(WHATSAPP_ALERT_NUMBER_KEY);
-    setWhatsappAlertNumber(storedNumber);
+    setWhatsappRecipientNumber(storedNumber || envNumber || null);
   }
   
   useEffect(() => {
@@ -80,11 +81,11 @@ export default function DashboardPage() {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === MONTHLY_SPENDING_GOAL_KEY) {
         loadMonthlyGoal(); 
-        alert85DispatchedRef.current = false; // Resetar flags de alerta se a meta mudar
+        alert85DispatchedRef.current = false; 
         alert100DispatchedRef.current = false;
       }
       if (event.key === WHATSAPP_ALERT_NUMBER_KEY) {
-        loadWhatsappAlertNumber();
+        loadWhatsappRecipientNumber();
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -249,51 +250,64 @@ export default function DashboardPage() {
   };
 
   const goalProgress = getGoalProgress();
-  let goalProgressColor = "bg-green-500"; // Cor padrão (verde)
+  let goalProgressColor = "bg-green-500";
   let goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de ${CURRENCY_SYMBOL}${monthlyGoal?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0,00'}.`;
   let remainingAmount = monthlyGoal ? monthlyGoal - currentMonthExpenses : 0;
 
-  // Disparar alertas de meta
+
   useEffect(() => {
-    if (monthlyGoal !== null && monthlyGoal > 0) {
-      const progress = (currentMonthExpenses / monthlyGoal) * 100;
-      let alertMessageSuffix = "";
-      if (whatsappAlertNumber) {
-        alertMessageSuffix = ` Um alerta (simulado) seria enviado para ${whatsappAlertNumber}.`;
-      }
+    const checkAndSendAlerts = async () => {
+      if (monthlyGoal !== null && monthlyGoal > 0 && whatsappRecipientNumber) {
+        const progress = (currentMonthExpenses / monthlyGoal) * 100;
+        const formattedGoal = CURRENCY_SYMBOL + monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
-      if (progress >= 100 && !alert100DispatchedRef.current) {
-        toast({
-          title: '🔴 Meta de Gastos Atingida!',
-          description: `Você atingiu/ultrapassou sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.${alertMessageSuffix}`,
-          variant: 'destructive',
-          duration: 7000,
-        });
-        alert100DispatchedRef.current = true;
-        alert85DispatchedRef.current = true; // Garante que o de 85% não dispare depois
-      } else if (progress >= 85 && progress < 100 && !alert85DispatchedRef.current) {
-         toast({
-          title: '🟡 Atenção: Meta de Gastos Próxima!',
-          description: `Você já utilizou ${progress.toFixed(0)}% da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.${alertMessageSuffix}`,
-          variant: 'default', // Usar default ou um tom de aviso se existir
-          duration: 7000,
-        });
-        alert85DispatchedRef.current = true;
-      }
+        if (progress >= 100 && !alert100DispatchedRef.current) {
+          const message = `🔴 ALERTA! Você atingiu/ultrapassou sua meta de gastos de ${formattedGoal} este mês. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`;
+          toast({
+            title: '🔴 Meta de Gastos Atingida!',
+            description: `Você atingiu sua meta de ${formattedGoal}. Tentando enviar alerta para ${whatsappRecipientNumber}.`,
+            variant: 'destructive',
+            duration: 7000,
+          });
+          const result = await sendWhatsappAlert(whatsappRecipientNumber, message);
+          if (result.success) {
+            toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
+          } else {
+            toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
+          }
+          alert100DispatchedRef.current = true;
+          alert85DispatchedRef.current = true; 
+        } else if (progress >= 85 && progress < 100 && !alert85DispatchedRef.current) {
+          const message = `🟡 ATENÇÃO! Você já utilizou ${progress.toFixed(0)}% da sua meta de gastos de ${formattedGoal} este mês. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`;
+           toast({
+            title: '🟡 Atenção: Meta de Gastos Próxima!',
+            description: `Você utilizou ${progress.toFixed(0)}% da sua meta de ${formattedGoal}. Tentando enviar alerta para ${whatsappRecipientNumber}.`,
+            variant: 'default', 
+            duration: 7000,
+          });
+          const result = await sendWhatsappAlert(whatsappRecipientNumber, message);
+           if (result.success) {
+            toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
+          } else {
+            toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
+          }
+          alert85DispatchedRef.current = true;
+        }
 
-      // Resetar flags se os gastos diminuirem abaixo dos limites (ex: exclusão de despesa)
-      if (progress < 100) alert100DispatchedRef.current = false;
-      if (progress < 85) alert85DispatchedRef.current = false;
-    }
-  }, [currentMonthExpenses, monthlyGoal, whatsappAlertNumber, toast]);
+        if (progress < 100) alert100DispatchedRef.current = false;
+        if (progress < 85) alert85DispatchedRef.current = false;
+      }
+    };
+    checkAndSendAlerts();
+  }, [currentMonthExpenses, monthlyGoal, whatsappRecipientNumber, toast]);
 
 
   if (monthlyGoal !== null && monthlyGoal > 0) {
     if (goalProgress >= 100) {
-      goalProgressColor = "bg-red-500"; // Vermelho
+      goalProgressColor = "bg-red-500"; 
       goalStatusMessage = `Meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ultrapassada em ${CURRENCY_SYMBOL}${Math.abs(remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!`;
     } else if (goalProgress >= 75) {
-      goalProgressColor = "bg-yellow-500"; // Amarelo
+      goalProgressColor = "bg-yellow-500"; 
       goalStatusMessage = `Atenção! Você já gastou ${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${goalProgress.toFixed(0)}%) da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
     } else {
         goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${goalProgress.toFixed(0)}%) da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Restam ${CURRENCY_SYMBOL}${remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -567,3 +581,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

@@ -14,7 +14,7 @@ import {
   Gift,
   Landmark,
   DollarSign,
-  Settings // Adicionado para a nova página
+  Settings
 } from 'lucide-react';
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
@@ -38,9 +38,13 @@ export const INCOME_SOURCES: IncomeSource[] = [
   { value: 'other', label: 'Outros' },
 ];
 
-export const CURRENCY_SYMBOL = 'R$'; // Símbolo da moeda brasileira
+export const CURRENCY_SYMBOL = 'R$';
 export const MONTHLY_SPENDING_GOAL_KEY = 'monthlySpendingGoal';
-export const WHATSAPP_ALERT_NUMBER_KEY = 'whatsappAlertNumber'; // Nova chave
+export const WHATSAPP_ALERT_NUMBER_KEY = 'whatsappAlertNumber';
+export const EVOLUTION_API_URL_KEY = 'evolutionApiUrl';
+export const EVOLUTION_API_INSTANCE_KEY = 'evolutionApiInstance';
+export const EVOLUTION_API_KEY_KEY = 'evolutionApiKey';
 
-// Ícone para a página de configurações
+
 export { Settings as SettingsIcon };
+
