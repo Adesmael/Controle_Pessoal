@@ -5,16 +5,17 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
-import { CURRENCY_SYMBOL } from '@/lib/constants';
-import { format, subDays } from 'date-fns';
+import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
+import { format, subDays, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { getFinancialTrend, type FinancialTrendInput, type FinancialTrendOutput } from '@/ai/flows/financial-trend-flow';
+import { getFinancialAdvice, type FinancialAdviceInput, type FinancialAdviceOutput, type ExpenseCategoryDetail } from '@/ai/flows/financial-advice-flow';
 
 
 export default function DashboardPage() {
@@ -24,8 +25,12 @@ export default function DashboardPage() {
 
   const [trendAnalysis, setTrendAnalysis] = useState<string | null>(null);
   const [projectedBalanceNext30Days, setProjectedBalanceNext30Days] = useState<number | null>(null);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [trendAnalysisLoading, setTrendAnalysisLoading] = useState(false);
+  const [trendAnalysisError, setTrendAnalysisError] = useState<string | null>(null);
+
+  const [financialAdvice, setFinancialAdvice] = useState<string[] | null>(null);
+  const [adviceLoading, setAdviceLoading] = useState(false);
+  const [adviceError, setAdviceError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -53,8 +58,10 @@ export default function DashboardPage() {
       setTransactions([]);
     } else if (data) {
       setTransactions(data.map(t => {
+        if (!t.date) return { ...t, id: t.id as string, date: new Date(), type: t.type as TransactionType }; // Fallback for invalid date
         const [year, month, day] = (t.date as string).split('-').map(Number);
-        return { ...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
+        const transactionDate = new Date(year, month - 1, day);
+        return { ...t, id: t.id as string, date: isValid(transactionDate) ? transactionDate : new Date(), type: t.type as TransactionType };
       }));
     }
     setLoading(false);
@@ -72,26 +79,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (transactions.length > 0 && supabase && !loading) { 
+      const today = new Date();
+      const thirtyDaysAgo = subDays(today, 30);
+
+      const last30DaysTransactions = transactions.filter(t => {
+        const transactionDate = t.date;
+        return transactionDate >= thirtyDaysAgo && transactionDate <= today;
+      });
+
+      const incomeLast30Days = last30DaysTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const expensesLast30Days = last30DaysTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      // Trend Analysis and Projection
       const calculateTrendAndProjection = async () => {
-        setAnalysisLoading(true);
-        setAnalysisError(null);
-
-        const today = new Date();
-        const thirtyDaysAgo = subDays(today, 30);
-
-        const last30DaysTransactions = transactions.filter(t => {
-          const transactionDate = t.date; // t.date is already a Date object
-          return transactionDate >= thirtyDaysAgo && transactionDate <= today;
-        });
-
-        const incomeLast30Days = last30DaysTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-
-        const expensesLast30Days = last30DaysTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-
+        setTrendAnalysisLoading(true);
+        setTrendAnalysisError(null);
         const netChangeLast30Days = incomeLast30Days - expensesLast30Days;
         setProjectedBalanceNext30Days(balance + netChangeLast30Days);
 
@@ -105,20 +112,60 @@ export default function DashboardPage() {
           setTrendAnalysis(result.analysis);
         } catch (error: any) {
           console.error('Error fetching trend analysis:', error);
-          setAnalysisError(error.message || 'Falha ao obter análise de tendência.');
+          setTrendAnalysisError(error.message || 'Falha ao obter análise de tendência.');
           setTrendAnalysis(null);
         } finally {
-          setAnalysisLoading(false);
+          setTrendAnalysisLoading(false);
         }
       };
 
+      // Financial Advice
+      const fetchFinancialAdvice = async () => {
+        setAdviceLoading(true);
+        setAdviceError(null);
+
+        const expenseBreakdownData: ExpenseCategoryDetail[] = EXPENSE_CATEGORIES.map(categoryConst => {
+          const categoryExpenses = last30DaysTransactions
+            .filter(t => t.type === 'expense' && t.category === categoryConst.value)
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+          
+          return {
+            categoryValue: categoryConst.value,
+            categoryLabel: categoryConst.label,
+            totalAmount: categoryExpenses,
+            percentageOfTotalExpenses: expensesLast30Days > 0 ? (categoryExpenses / expensesLast30Days) * 100 : 0,
+          };
+        }).filter(detail => detail.totalAmount > 0); // Only include categories with expenses
+
+        try {
+          const adviceInput: FinancialAdviceInput = {
+            recentIncome: incomeLast30Days,
+            recentTotalExpenses: expensesLast30Days,
+            expenseBreakdown: expenseBreakdownData,
+            currentBalance: balance,
+          };
+          const result: FinancialAdviceOutput = await getFinancialAdvice(adviceInput);
+          setFinancialAdvice(result.recommendations);
+        } catch (error: any) {
+          console.error('Error fetching financial advice:', error);
+          setAdviceError(error.message || 'Falha ao obter recomendações financeiras.');
+          setFinancialAdvice(null);
+        } finally {
+          setAdviceLoading(false);
+        }
+      };
+      
       calculateTrendAndProjection();
+      fetchFinancialAdvice();
+
     } else if (!loading && transactions.length === 0) {
-      // Reset states if there are no transactions
       setProjectedBalanceNext30Days(null);
       setTrendAnalysis(null);
-      setAnalysisLoading(false);
-      setAnalysisError(null);
+      setTrendAnalysisLoading(false);
+      setTrendAnalysisError(null);
+      setFinancialAdvice(null);
+      setAdviceLoading(false);
+      setAdviceError(null);
     }
   }, [transactions, balance, loading, supabase]);
 
@@ -140,8 +187,6 @@ export default function DashboardPage() {
     );
   }
 
-  // This specific loading state is for the initial page load.
-  // Analysis loading is handled separately within its card.
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -206,52 +251,91 @@ export default function DashboardPage() {
         </Card>
       </div>
       
-      {/* Analysis and Forecast Card */}
-      {supabase && ( /* Only show if supabase is configured, otherwise transactions won't load */
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Previsão e Tendência de Saldo</CardTitle>
-            <Lightbulb className="h-5 w-5 text-yellow-500" />
-          </CardHeader>
-          <CardContent className="min-h-[100px]"> {/* Added min-height to prevent layout shifts */}
-            { (loading || (analysisLoading && transactions.length > 0) ) && !analysisError && (
-                <div className="flex items-center space-x-2 py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    <span>{loading ? 'Carregando dados...' : 'Analisando tendências...'}</span>
+      {supabase && (
+      <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Previsão e Tendência de Saldo</CardTitle>
+              <Lightbulb className="h-5 w-5 text-yellow-500" />
+            </CardHeader>
+            <CardContent className="min-h-[120px]">
+              { (loading || (trendAnalysisLoading && transactions.length > 0) ) && !trendAnalysisError && (
+                  <div className="flex items-center space-x-2 py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span>{loading ? 'Carregando dados...' : 'Analisando tendências...'}</span>
+                  </div>
+              )}
+              {!loading && transactions.length === 0 && !trendAnalysisLoading && (
+                   <p className="text-sm text-muted-foreground py-4">Adicione transações para ver a previsão e análise de tendências.</p>
+              )}
+              {trendAnalysisError && !trendAnalysisLoading && (
+                <div className="flex items-center space-x-2 text-destructive py-4">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span>{trendAnalysisError}</span>
                 </div>
-            )}
-            {!loading && transactions.length === 0 && !analysisLoading && (
-                 <p className="text-sm text-muted-foreground py-4">Adicione transações para ver a previsão e análise de tendências.</p>
-            )}
-            {analysisError && !analysisLoading && (
-              <div className="flex items-center space-x-2 text-destructive py-4">
-                <AlertTriangle className="h-5 w-5" />
-                <span>{analysisError}</span>
-              </div>
-            )}
-            {!loading && !analysisLoading && !analysisError && transactions.length > 0 && (
-              <>
-                {projectedBalanceNext30Days !== null ? (
-                  <>
-                    <div className="text-2xl font-bold">
-                      {CURRENCY_SYMBOL}{projectedBalanceNext30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Saldo projetado (próximos 30 dias - estimativa simples)
-                    </p>
-                  </>
+              )}
+              {!loading && !trendAnalysisLoading && !trendAnalysisError && transactions.length > 0 && (
+                <>
+                  {projectedBalanceNext30Days !== null ? (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {CURRENCY_SYMBOL}{projectedBalanceNext30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Saldo projetado (próximos 30 dias - estimativa simples)
+                      </p>
+                    </>
+                  ) : (
+                       <p className="text-sm text-muted-foreground">Não foi possível calcular a projeção.</p>
+                  )}
+                  {trendAnalysis ? (
+                    <p className="mt-3 text-sm">{trendAnalysis}</p>
+                  ) : (
+                     <p className="mt-3 text-sm text-muted-foreground">Análise de tendência indisponível no momento.</p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Recomendações Financeiras</CardTitle>
+              <Sparkles className="h-5 w-5 text-purple-500" />
+            </CardHeader>
+            <CardContent className="min-h-[120px]">
+              { (loading || (adviceLoading && transactions.length > 0) ) && !adviceError && (
+                  <div className="flex items-center space-x-2 py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span>{loading ? 'Carregando dados...' : 'Gerando recomendações...'}</span>
+                  </div>
+              )}
+              {!loading && transactions.length === 0 && !adviceLoading && (
+                   <p className="text-sm text-muted-foreground py-4">Adicione transações para receber recomendações financeiras.</p>
+              )}
+              {adviceError && !adviceLoading && (
+                <div className="flex items-center space-x-2 text-destructive py-4">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span>{adviceError}</span>
+                </div>
+              )}
+              {!loading && !adviceLoading && !adviceError && transactions.length > 0 && financialAdvice && (
+                financialAdvice.length > 0 ? (
+                  <ul className="mt-3 space-y-2 text-sm list-disc list-inside">
+                    {financialAdvice.map((advice, index) => (
+                      <li key={index}>{advice}</li>
+                    ))}
+                  </ul>
                 ) : (
-                     <p className="text-sm text-muted-foreground">Não foi possível calcular a projeção.</p>
-                )}
-                {trendAnalysis ? (
-                  <p className="mt-3 text-sm">{trendAnalysis}</p>
-                ) : (
-                   <p className="mt-3 text-sm text-muted-foreground">Análise de tendência indisponível no momento.</p>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+                  <p className="mt-3 text-sm text-muted-foreground">Nenhuma recomendação específica no momento. Continue acompanhando suas finanças!</p>
+                )
+              )}
+               {!loading && !adviceLoading && !adviceError && transactions.length > 0 && !financialAdvice && (
+                 <p className="mt-3 text-sm text-muted-foreground">Recomendações indisponíveis no momento.</p>
+               )}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <Card>
@@ -284,7 +368,7 @@ export default function DashboardPage() {
                     <TableCell className={transaction.type === 'income' ? '' : 'text-destructive'}>
                       {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell>{format(transaction.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                    <TableCell>{isValid(transaction.date) ? format(transaction.date, 'dd/MM/yyyy', { locale: ptBR }) : 'Data inválida'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -300,4 +384,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
