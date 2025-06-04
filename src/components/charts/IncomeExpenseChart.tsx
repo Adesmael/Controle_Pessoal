@@ -1,6 +1,7 @@
+
 'use client';
 
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList } from 'recharts';
 import type { Transaction } from '@/types';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,6 +12,11 @@ import Image from 'next/image';
 interface IncomeExpenseChartProps {
   transactions: Transaction[];
 }
+
+const ValueFormatter = (value: number) => {
+  if (value === 0) return '';
+  return `${CURRENCY_SYMBOL}${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
 
 export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartProps) {
   const sixMonthsAgo = subMonths(new Date(), 5);
@@ -55,7 +61,7 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data}>
+          <BarChart data={data} margin={{ top: 20, right: 0, left: -20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
             <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `${CURRENCY_SYMBOL}${value.toLocaleString('pt-BR')}`} />
@@ -66,11 +72,16 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
               contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
             />
             <Legend wrapperStyle={{ fontSize: '12px' }} />
-            <Bar dataKey="Receita" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name="Receita" />
-            <Bar dataKey="Despesas" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name="Despesas" />
+            <Bar dataKey="Receita" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name="Receita">
+              <LabelList dataKey="Receita" position="top" formatter={ValueFormatter} fontSize={11} fill="hsl(var(--foreground))" />
+            </Bar>
+            <Bar dataKey="Despesas" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name="Despesas">
+              <LabelList dataKey="Despesas" position="top" formatter={ValueFormatter} fontSize={11} fill="hsl(var(--foreground))" />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
   );
 }
+
