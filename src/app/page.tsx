@@ -157,7 +157,7 @@ export default function DashboardPage() {
       const calculateTrendAndProjection = async () => {
         setTrendAnalysisLoading(true);
         setTrendAnalysisError(null);
-        setTrendAnalysis(null); // Clear previous analysis
+        setTrendAnalysis(null); 
         const netChangeLast30Days = incomeLast30Days - expensesLast30Days;
         setProjectedBalanceNext30Days(balance + netChangeLast30Days);
 
@@ -171,7 +171,13 @@ export default function DashboardPage() {
           setTrendAnalysis(result.analysis);
         } catch (error: any) {
           console.error('Error fetching trend analysis:', error);
-          setTrendAnalysisError(error.message || 'Falha ao obter análise de tendência.');
+          let errorMessage = 'Falha ao obter análise de tendência.';
+          if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
+            errorMessage = 'Falha ao buscar análise de tendência. Verifique se o servidor Genkit está rodando e se a GOOGLE_API_KEY está configurada corretamente. Consulte o console do servidor Genkit para mais detalhes.';
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+          setTrendAnalysisError(errorMessage);
           setTrendAnalysis(null);
         } finally {
           setTrendAnalysisLoading(false);
@@ -181,7 +187,7 @@ export default function DashboardPage() {
       const fetchFinancialAdvice = async () => {
         setAdviceLoading(true);
         setAdviceError(null);
-        setFinancialAdvice(null); // Clear previous advice
+        setFinancialAdvice(null); 
 
         const expenseBreakdownData: ExpenseCategoryDetail[] = EXPENSE_CATEGORIES.map(categoryConst => {
           const categoryExpenses = last30DaysTransactions
@@ -207,7 +213,13 @@ export default function DashboardPage() {
           setFinancialAdvice(result.recommendations);
         } catch (error: any) {
           console.error('Error fetching financial advice:', error);
-          setAdviceError(error.message || 'Falha ao obter recomendações financeiras.');
+          let errorMessage = 'Falha ao obter recomendações financeiras.';
+          if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
+            errorMessage = 'Falha ao buscar recomendações. Verifique se o servidor Genkit está rodando e se a GOOGLE_API_KEY está configurada. Consulte o console do servidor Genkit para detalhes.';
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+          setAdviceError(errorMessage);
           setFinancialAdvice(null);
         } finally {
           setAdviceLoading(false);
@@ -220,7 +232,7 @@ export default function DashboardPage() {
       } else {
         setTrendAnalysisLoading(false);
         setAdviceLoading(false);
-        setProjectedBalanceNext30Days(balance); // If no recent activity, projection is current balance
+        setProjectedBalanceNext30Days(balance); 
         setTrendAnalysis("Sem movimentações recentes para análise de tendência.");
         setFinancialAdvice(["Sem movimentações recentes para gerar recomendações."]);
       }
@@ -443,7 +455,7 @@ export default function DashboardPage() {
                    <p className="text-sm text-muted-foreground py-4">Adicione transações para ver a previsão e análise de tendências.</p>
               )}
               
-              { !trendAnalysisLoading && projectedBalanceNext30Days !== null && (
+              {projectedBalanceNext30Days !== null && (
                  <>
                     <div className="text-2xl font-bold">
                         {CURRENCY_SYMBOL}{projectedBalanceNext30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -454,7 +466,7 @@ export default function DashboardPage() {
                  </>
               )}
 
-              {trendAnalysisLoading && projectedBalanceNext30Days !== null && ( // Show loader for trend only if projection is already visible
+              {trendAnalysisLoading && projectedBalanceNext30Days !== null && ( 
                 <div className="flex items-center space-x-2 py-2 mt-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     <span className="text-sm">Analisando tendência...</span>
@@ -462,8 +474,8 @@ export default function DashboardPage() {
               )}
 
               {trendAnalysisError && !trendAnalysisLoading && (
-                <div className="flex items-center space-x-2 text-destructive py-2 mt-2">
-                  <AlertTriangle className="h-5 w-5" />
+                <div className="flex items-start space-x-2 text-destructive py-2 mt-2">
+                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                   <span className="text-sm">{trendAnalysisError}</span>
                 </div>
               )}
@@ -495,9 +507,9 @@ export default function DashboardPage() {
                    <p className="text-sm text-muted-foreground py-4">Adicione transações para receber recomendações financeiras.</p>
               )}
               {adviceError && !adviceLoading && (
-                <div className="flex items-center space-x-2 text-destructive py-4">
-                  <AlertTriangle className="h-5 w-5" />
-                  <span>{adviceError}</span>
+                <div className="flex items-start space-x-2 text-destructive py-4">
+                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                  <span className="text-sm">{adviceError}</span>
                 </div>
               )}
               {!loading && !adviceLoading && !adviceError && transactions.length > 0 && financialAdvice && (
