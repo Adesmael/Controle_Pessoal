@@ -5,21 +5,27 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
-import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { format } from 'date-fns';
+import { CURRENCY_SYMBOL } from '@/lib/constants';
+import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
+import { getFinancialTrend, type FinancialTrendInput, type FinancialTrendOutput } from '@/ai/flows/financial-trend-flow';
 
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const [trendAnalysis, setTrendAnalysis] = useState<string | null>(null);
+  const [projectedBalanceNext30Days, setProjectedBalanceNext30Days] = useState<number | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -53,6 +59,69 @@ export default function DashboardPage() {
     }
     setLoading(false);
   }
+  
+  const totalIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const totalExpenses = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const balance = totalIncome - totalExpenses;
+
+  useEffect(() => {
+    if (transactions.length > 0 && supabase && !loading) { 
+      const calculateTrendAndProjection = async () => {
+        setAnalysisLoading(true);
+        setAnalysisError(null);
+
+        const today = new Date();
+        const thirtyDaysAgo = subDays(today, 30);
+
+        const last30DaysTransactions = transactions.filter(t => {
+          const transactionDate = t.date; // t.date is already a Date object
+          return transactionDate >= thirtyDaysAgo && transactionDate <= today;
+        });
+
+        const incomeLast30Days = last30DaysTransactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        const expensesLast30Days = last30DaysTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        const netChangeLast30Days = incomeLast30Days - expensesLast30Days;
+        setProjectedBalanceNext30Days(balance + netChangeLast30Days);
+
+        try {
+          const analysisInput: FinancialTrendInput = {
+            currentBalance: balance,
+            incomeLast30Days: incomeLast30Days,
+            expensesLast30Days: expensesLast30Days,
+          };
+          const result: FinancialTrendOutput = await getFinancialTrend(analysisInput);
+          setTrendAnalysis(result.analysis);
+        } catch (error: any) {
+          console.error('Error fetching trend analysis:', error);
+          setAnalysisError(error.message || 'Falha ao obter análise de tendência.');
+          setTrendAnalysis(null);
+        } finally {
+          setAnalysisLoading(false);
+        }
+      };
+
+      calculateTrendAndProjection();
+    } else if (!loading && transactions.length === 0) {
+      // Reset states if there are no transactions
+      setProjectedBalanceNext30Days(null);
+      setTrendAnalysis(null);
+      setAnalysisLoading(false);
+      setAnalysisError(null);
+    }
+  }, [transactions, balance, loading, supabase]);
+
 
   if (!supabase) {
     return (
@@ -71,6 +140,8 @@ export default function DashboardPage() {
     );
   }
 
+  // This specific loading state is for the initial page load.
+  // Analysis loading is handled separately within its card.
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -79,16 +150,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  const totalExpenses = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  const balance = totalIncome - totalExpenses;
 
   const recentTransactions = transactions.slice(0, 5); 
 
@@ -144,6 +205,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Analysis and Forecast Card */}
+      {supabase && ( /* Only show if supabase is configured, otherwise transactions won't load */
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Previsão e Tendência de Saldo</CardTitle>
+            <Lightbulb className="h-5 w-5 text-yellow-500" />
+          </CardHeader>
+          <CardContent className="min-h-[100px]"> {/* Added min-height to prevent layout shifts */}
+            { (loading || (analysisLoading && transactions.length > 0) ) && !analysisError && (
+                <div className="flex items-center space-x-2 py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <span>{loading ? 'Carregando dados...' : 'Analisando tendências...'}</span>
+                </div>
+            )}
+            {!loading && transactions.length === 0 && !analysisLoading && (
+                 <p className="text-sm text-muted-foreground py-4">Adicione transações para ver a previsão e análise de tendências.</p>
+            )}
+            {analysisError && !analysisLoading && (
+              <div className="flex items-center space-x-2 text-destructive py-4">
+                <AlertTriangle className="h-5 w-5" />
+                <span>{analysisError}</span>
+              </div>
+            )}
+            {!loading && !analysisLoading && !analysisError && transactions.length > 0 && (
+              <>
+                {projectedBalanceNext30Days !== null ? (
+                  <>
+                    <div className="text-2xl font-bold">
+                      {CURRENCY_SYMBOL}{projectedBalanceNext30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Saldo projetado (próximos 30 dias - estimativa simples)
+                    </p>
+                  </>
+                ) : (
+                     <p className="text-sm text-muted-foreground">Não foi possível calcular a projeção.</p>
+                )}
+                {trendAnalysis ? (
+                  <p className="mt-3 text-sm">{trendAnalysis}</p>
+                ) : (
+                   <p className="mt-3 text-sm text-muted-foreground">Análise de tendência indisponível no momento.</p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -191,3 +300,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
