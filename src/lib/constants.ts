@@ -40,11 +40,11 @@ export const INCOME_SOURCES: IncomeSource[] = [
 
 export const CURRENCY_SYMBOL = 'R$';
 export const MONTHLY_SPENDING_GOAL_KEY = 'monthlySpendingGoal';
-export const WHATSAPP_ALERT_NUMBER_KEY = 'whatsappAlertNumber';
-export const EVOLUTION_API_URL_KEY = 'evolutionApiUrl';
-export const EVOLUTION_API_INSTANCE_KEY = 'evolutionApiInstance';
-export const EVOLUTION_API_KEY_KEY = 'evolutionApiKey';
+// Removidas constantes da Evolution API e WhatsApp
+// export const WHATSAPP_ALERT_NUMBER_KEY = 'whatsappAlertNumber';
+// export const EVOLUTION_API_URL_KEY = 'evolutionApiUrl';
+// export const EVOLUTION_API_INSTANCE_KEY = 'evolutionApiInstance';
+// export const EVOLUTION_API_KEY_KEY = 'evolutionApiKey';
 
 
 export { Settings as SettingsIcon };
-

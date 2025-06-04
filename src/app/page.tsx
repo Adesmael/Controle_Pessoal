@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
-import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY, WHATSAPP_ALERT_NUMBER_KEY } from '@/lib/constants';
+import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
 import { format, subDays, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getFinancialTrend, type FinancialTrendInput, type FinancialTrendOutput } from '@/ai/flows/financial-trend-flow';
 import { getFinancialAdvice, type FinancialAdviceInput, type FinancialAdviceOutput, type ExpenseCategoryDetail } from '@/ai/flows/financial-advice-flow';
 import { Progress } from "@/components/ui/progress";
-import { sendWhatsappAlert } from '@/ai/actions/sendAlert'; // Importando a nova ação
+// import { sendWhatsappAlert } from '@/ai/actions/sendAlert'; // Removido
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -35,7 +35,7 @@ export default function DashboardPage() {
 
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [currentMonthExpenses, setCurrentMonthExpenses] = useState<number>(0);
-  const [whatsappRecipientNumber, setWhatsappRecipientNumber] = useState<string | null>(null);
+  // const [whatsappRecipientNumber, setWhatsappRecipientNumber] = useState<string | null>(null); // Removido
 
   const alert85DispatchedRef = useRef(false);
   const alert100DispatchedRef = useRef(false);
@@ -48,7 +48,7 @@ export default function DashboardPage() {
     }
     fetchTransactions();
     loadMonthlyGoal();
-    loadWhatsappRecipientNumber();
+    // loadWhatsappRecipientNumber(); // Removido
   }, []);
 
   function loadMonthlyGoal() {
@@ -65,11 +65,11 @@ export default function DashboardPage() {
     }
   }
 
-  function loadWhatsappRecipientNumber() {
-    const envNumber = process.env.NEXT_PUBLIC_WHATSAPP_RECIPIENT_NUMBER;
-    const storedNumber = localStorage.getItem(WHATSAPP_ALERT_NUMBER_KEY);
-    setWhatsappRecipientNumber(storedNumber || envNumber || null);
-  }
+  // function loadWhatsappRecipientNumber() { // Removido
+  //   const envNumber = process.env.NEXT_PUBLIC_WHATSAPP_RECIPIENT_NUMBER;
+  //   const storedNumber = localStorage.getItem(WHATSAPP_ALERT_NUMBER_KEY);
+  //   setWhatsappRecipientNumber(storedNumber || envNumber || null);
+  // }
   
   useEffect(() => {
     if (transactions.length > 0) {
@@ -84,9 +84,9 @@ export default function DashboardPage() {
         alert85DispatchedRef.current = false; 
         alert100DispatchedRef.current = false;
       }
-      if (event.key === WHATSAPP_ALERT_NUMBER_KEY) {
-        loadWhatsappRecipientNumber();
-      }
+      // if (event.key === WHATSAPP_ALERT_NUMBER_KEY) { // Removido
+      //   loadWhatsappRecipientNumber();
+      // }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -257,7 +257,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const checkAndSendAlerts = async () => {
-      if (monthlyGoal !== null && monthlyGoal > 0 && whatsappRecipientNumber) {
+      if (monthlyGoal !== null && monthlyGoal > 0) { // Removido whatsappRecipientNumber da condição
         const progress = (currentMonthExpenses / monthlyGoal) * 100;
         const formattedGoal = CURRENCY_SYMBOL + monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -265,32 +265,32 @@ export default function DashboardPage() {
           const message = `🔴 ALERTA! Você atingiu/ultrapassou sua meta de gastos de ${formattedGoal} este mês. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`;
           toast({
             title: '🔴 Meta de Gastos Atingida!',
-            description: `Você atingiu sua meta de ${formattedGoal}. Tentando enviar alerta para ${whatsappRecipientNumber}.`,
+            description: `Você atingiu sua meta de ${formattedGoal}.`,
             variant: 'destructive',
             duration: 7000,
           });
-          const result = await sendWhatsappAlert(whatsappRecipientNumber, message);
-          if (result.success) {
-            toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
-          } else {
-            toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
-          }
+          // const result = await sendWhatsappAlert(whatsappRecipientNumber, message); // Removido
+          // if (result.success) { // Removido
+          //   toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
+          // } else {
+          //   toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
+          // }
           alert100DispatchedRef.current = true;
           alert85DispatchedRef.current = true; 
         } else if (progress >= 85 && progress < 100 && !alert85DispatchedRef.current) {
           const message = `🟡 ATENÇÃO! Você já utilizou ${progress.toFixed(0)}% da sua meta de gastos de ${formattedGoal} este mês. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`;
            toast({
             title: '🟡 Atenção: Meta de Gastos Próxima!',
-            description: `Você utilizou ${progress.toFixed(0)}% da sua meta de ${formattedGoal}. Tentando enviar alerta para ${whatsappRecipientNumber}.`,
+            description: `Você utilizou ${progress.toFixed(0)}% da sua meta de ${formattedGoal}.`,
             variant: 'default', 
             duration: 7000,
           });
-          const result = await sendWhatsappAlert(whatsappRecipientNumber, message);
-           if (result.success) {
-            toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
-          } else {
-            toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
-          }
+          // const result = await sendWhatsappAlert(whatsappRecipientNumber, message); // Removido
+          //  if (result.success) { // Removido
+          //   toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
+          // } else {
+          //   toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
+          // }
           alert85DispatchedRef.current = true;
         }
 
@@ -299,7 +299,7 @@ export default function DashboardPage() {
       }
     };
     checkAndSendAlerts();
-  }, [currentMonthExpenses, monthlyGoal, whatsappRecipientNumber, toast]);
+  }, [currentMonthExpenses, monthlyGoal, toast]); // Removido whatsappRecipientNumber das dependências
 
 
   if (monthlyGoal !== null && monthlyGoal > 0) {
@@ -581,4 +581,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
