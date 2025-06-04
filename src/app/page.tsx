@@ -219,7 +219,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
+            <CardTitle className="font-headline font-bold text-base">Receita Total</CardTitle>
             <TrendingUp className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
@@ -229,7 +229,7 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesa Total</CardTitle>
+            <CardTitle className="font-headline font-bold text-base">Despesa Total</CardTitle>
             <TrendingDown className="h-5 w-5 text-red-500" />
           </CardHeader>
           <CardContent>
@@ -239,7 +239,7 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Atual</CardTitle>
+            <CardTitle className="font-headline font-bold text-base">Saldo Atual</CardTitle>
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Previsão e Tendência de Saldo</CardTitle>
+              <CardTitle className="font-headline font-bold text-base">Previsão e Tendência de Saldo</CardTitle>
               <Lightbulb className="h-5 w-5 text-yellow-500" />
             </CardHeader>
             <CardContent className="min-h-[120px]">
@@ -300,7 +300,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Recomendações Financeiras</CardTitle>
+              <CardTitle className="font-headline font-bold text-base">Recomendações Financeiras</CardTitle>
               <Sparkles className="h-5 w-5 text-purple-500" />
             </CardHeader>
             <CardContent className="min-h-[120px]">
@@ -340,7 +340,7 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Atividade Recente</CardTitle>
+          <CardTitle className="font-headline font-bold">Atividade Recente</CardTitle>
           <CardDescription>Exibindo suas últimas 5 transações.</CardDescription>
         </CardHeader>
         <CardContent>
