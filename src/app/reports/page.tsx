@@ -36,7 +36,7 @@ export default function ReportsPage() {
       return;
     }
     async function fetchAllTransactions() {
-      if (!supabase) return;
+      if (!supabase) return; // Double check, though already checked above
       setLoading(true);
       const { data, error } = await supabase
         .from('transactions')
@@ -63,7 +63,39 @@ export default function ReportsPage() {
       setLoading(false);
     }
     fetchAllTransactions();
-  }, [toast]);
+  }, [toast]); // supabase is stable, toast is stable
+
+  const summary = useMemo(() => {
+    const totalIncome = displayedTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalExpenses = displayedTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const balance = totalIncome - totalExpenses;
+    return { totalIncome, totalExpenses, balance };
+  }, [displayedTransactions]);
+  
+  const transactionListDescription = useMemo(() => {
+    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas.';
+    const dateParts: string[] = [];
+    if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
+    if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
+
+    if (dateParts.length > 0 || selectedCategory) {
+      descriptionText = 'Exibindo transações ';
+      if (dateParts.length > 0) {
+        descriptionText += dateParts.join(' ');
+      }
+      if (selectedCategory) {
+        const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
+        descriptionText += `${dateParts.length > 0 ? '. ' : ''}Despesas filtradas por: ${categoryLabel}.`;
+      } else if (dateParts.length > 0) {
+        descriptionText += '.';
+      }
+    }
+    return descriptionText;
+  }, [startDate, endDate, selectedCategory]);
 
   const applyFilters = () => {
     let filtered = [...allTransactions];
@@ -83,7 +115,13 @@ export default function ReportsPage() {
         if (t.type === 'expense') {
           return t.category === selectedCategory;
         }
-        return true; // Manter transações de receita
+        // If filtering by expense category, we might want to decide if income transactions are shown.
+        // For now, let's assume if an expense category is selected, we only show expenses of that category
+        // AND all income transactions. If the goal is to *only* show expenses of that category, this needs adjustment.
+        // Current behavior: if expense category selected, non-matching expenses are filtered out, income remains.
+        // To only show matching expenses and no income:
+        // return t.type === 'expense' && t.category === selectedCategory;
+        return true; 
       });
     }
     setDisplayedTransactions(filtered);
@@ -137,17 +175,6 @@ export default function ReportsPage() {
     });
   };
 
-  const summary = useMemo(() => {
-    const totalIncome = displayedTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    const totalExpenses = displayedTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    const balance = totalIncome - totalExpenses;
-    return { totalIncome, totalExpenses, balance };
-  }, [displayedTransactions]);
-
 
   if (!supabase) {
     return (
@@ -180,28 +207,6 @@ export default function ReportsPage() {
     return category ? <category.icon className="h-4 w-4 mr-1 inline-block text-muted-foreground" /> : null;
   };
   
-  const transactionListDescription = useMemo(() => {
-    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas.';
-    const dateParts: string[] = [];
-    if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
-    if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
-
-    if (dateParts.length > 0 || selectedCategory) {
-      descriptionText = 'Exibindo transações ';
-      if (dateParts.length > 0) {
-        descriptionText += dateParts.join(' ');
-      }
-      if (selectedCategory) {
-        const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
-        descriptionText += `${dateParts.length > 0 ? '. ' : ''}Despesas filtradas por: ${categoryLabel}.`;
-      } else if (dateParts.length > 0) {
-        descriptionText += '.';
-      }
-    }
-    return descriptionText;
-  }, [startDate, endDate, selectedCategory]);
-
-
   return (
     <div className="space-y-8">
       <div>
@@ -331,7 +336,11 @@ export default function ReportsPage() {
                                 <CommandItem
                                 key="all-categories"
                                 value="all-categories"
-                                onSelect={() => setSelectedCategory(undefined)}
+                                onSelect={() => {
+                                    const combobox = document.activeElement;
+                                    if (combobox) (combobox as HTMLElement).blur();
+                                    setSelectedCategory(undefined);
+                                }}
                                 >
                                 <Check
                                     className={cn(
@@ -346,7 +355,9 @@ export default function ReportsPage() {
                                     value={category.label}
                                     key={category.value}
                                     onSelect={() => {
-                                    setSelectedCategory(category.value);
+                                      setSelectedCategory(category.value);
+                                      const combobox = document.activeElement;
+                                      if (combobox) (combobox as HTMLElement).blur();
                                     }}
                                 >
                                     <Check
@@ -444,4 +455,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
