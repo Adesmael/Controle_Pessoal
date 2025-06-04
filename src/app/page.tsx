@@ -17,7 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { getFinancialTrend, type FinancialTrendInput, type FinancialTrendOutput } from '@/ai/flows/financial-trend-flow';
 import { getFinancialAdvice, type FinancialAdviceInput, type FinancialAdviceOutput, type ExpenseCategoryDetail } from '@/ai/flows/financial-advice-flow';
 import { Progress } from "@/components/ui/progress";
-// import { sendWhatsappAlert } from '@/ai/actions/sendAlert'; // Removido
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -35,7 +34,6 @@ export default function DashboardPage() {
 
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [currentMonthExpenses, setCurrentMonthExpenses] = useState<number>(0);
-  // const [whatsappRecipientNumber, setWhatsappRecipientNumber] = useState<string | null>(null); // Removido
 
   const alert85DispatchedRef = useRef(false);
   const alert100DispatchedRef = useRef(false);
@@ -48,7 +46,6 @@ export default function DashboardPage() {
     }
     fetchTransactions();
     loadMonthlyGoal();
-    // loadWhatsappRecipientNumber(); // Removido
   }, []);
 
   function loadMonthlyGoal() {
@@ -64,12 +61,6 @@ export default function DashboardPage() {
       setMonthlyGoal(null);
     }
   }
-
-  // function loadWhatsappRecipientNumber() { // Removido
-  //   const envNumber = process.env.NEXT_PUBLIC_WHATSAPP_RECIPIENT_NUMBER;
-  //   const storedNumber = localStorage.getItem(WHATSAPP_ALERT_NUMBER_KEY);
-  //   setWhatsappRecipientNumber(storedNumber || envNumber || null);
-  // }
   
   useEffect(() => {
     if (transactions.length > 0) {
@@ -84,9 +75,6 @@ export default function DashboardPage() {
         alert85DispatchedRef.current = false; 
         alert100DispatchedRef.current = false;
       }
-      // if (event.key === WHATSAPP_ALERT_NUMBER_KEY) { // Removido
-      //   loadWhatsappRecipientNumber();
-      // }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -169,6 +157,7 @@ export default function DashboardPage() {
       const calculateTrendAndProjection = async () => {
         setTrendAnalysisLoading(true);
         setTrendAnalysisError(null);
+        setTrendAnalysis(null); // Clear previous analysis
         const netChangeLast30Days = incomeLast30Days - expensesLast30Days;
         setProjectedBalanceNext30Days(balance + netChangeLast30Days);
 
@@ -192,6 +181,7 @@ export default function DashboardPage() {
       const fetchFinancialAdvice = async () => {
         setAdviceLoading(true);
         setAdviceError(null);
+        setFinancialAdvice(null); // Clear previous advice
 
         const expenseBreakdownData: ExpenseCategoryDetail[] = EXPENSE_CATEGORIES.map(categoryConst => {
           const categoryExpenses = last30DaysTransactions
@@ -230,6 +220,7 @@ export default function DashboardPage() {
       } else {
         setTrendAnalysisLoading(false);
         setAdviceLoading(false);
+        setProjectedBalanceNext30Days(balance); // If no recent activity, projection is current balance
         setTrendAnalysis("Sem movimentações recentes para análise de tendência.");
         setFinancialAdvice(["Sem movimentações recentes para gerar recomendações."]);
       }
@@ -257,40 +248,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const checkAndSendAlerts = async () => {
-      if (monthlyGoal !== null && monthlyGoal > 0) { // Removido whatsappRecipientNumber da condição
+      if (monthlyGoal !== null && monthlyGoal > 0) { 
         const progress = (currentMonthExpenses / monthlyGoal) * 100;
         const formattedGoal = CURRENCY_SYMBOL + monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
         if (progress >= 100 && !alert100DispatchedRef.current) {
-          const message = `🔴 ALERTA! Você atingiu/ultrapassou sua meta de gastos de ${formattedGoal} este mês. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`;
           toast({
             title: '🔴 Meta de Gastos Atingida!',
-            description: `Você atingiu sua meta de ${formattedGoal}.`,
+            description: `Você atingiu/ultrapassou sua meta de ${formattedGoal}. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`,
             variant: 'destructive',
             duration: 7000,
           });
-          // const result = await sendWhatsappAlert(whatsappRecipientNumber, message); // Removido
-          // if (result.success) { // Removido
-          //   toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
-          // } else {
-          //   toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
-          // }
           alert100DispatchedRef.current = true;
           alert85DispatchedRef.current = true; 
         } else if (progress >= 85 && progress < 100 && !alert85DispatchedRef.current) {
-          const message = `🟡 ATENÇÃO! Você já utilizou ${progress.toFixed(0)}% da sua meta de gastos de ${formattedGoal} este mês. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`;
            toast({
             title: '🟡 Atenção: Meta de Gastos Próxima!',
-            description: `Você utilizou ${progress.toFixed(0)}% da sua meta de ${formattedGoal}.`,
+            description: `Você utilizou ${progress.toFixed(0)}% da sua meta de ${formattedGoal}. Gasto atual: ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.`,
             variant: 'default', 
             duration: 7000,
           });
-          // const result = await sendWhatsappAlert(whatsappRecipientNumber, message); // Removido
-          //  if (result.success) { // Removido
-          //   toast({ title: 'Alerta WhatsApp Enviado!', description: result.details, duration: 5000 });
-          // } else {
-          //   toast({ title: 'Falha ao Enviar Alerta WhatsApp', description: result.details, variant: 'destructive', duration: 7000 });
-          // }
           alert85DispatchedRef.current = true;
         }
 
@@ -299,7 +276,7 @@ export default function DashboardPage() {
       }
     };
     checkAndSendAlerts();
-  }, [currentMonthExpenses, monthlyGoal, toast]); // Removido whatsappRecipientNumber das dependências
+  }, [currentMonthExpenses, monthlyGoal, toast]);
 
 
   if (monthlyGoal !== null && monthlyGoal > 0) {
@@ -456,42 +433,49 @@ export default function DashboardPage() {
               <Lightbulb className="h-5 w-5 text-yellow-500" />
             </CardHeader>
             <CardContent className="min-h-[120px]">
-              { (loading || (trendAnalysisLoading && transactions.length > 0) ) && !trendAnalysisError && (
+              { (loading || (trendAnalysisLoading && transactions.length > 0 && !projectedBalanceNext30Days) ) && !trendAnalysisError && (
                   <div className="flex items-center space-x-2 py-4">
                       <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <span>{loading && transactions.length === 0 ? 'Carregando dados...' : 'Analisando tendências...'}</span>
+                      <span>{loading && transactions.length === 0 ? 'Carregando dados...' : 'Analisando...'}</span>
                   </div>
               )}
               {!loading && transactions.length === 0 && !trendAnalysisLoading && (
                    <p className="text-sm text-muted-foreground py-4">Adicione transações para ver a previsão e análise de tendências.</p>
               )}
-              {trendAnalysisError && !trendAnalysisLoading && (
-                <div className="flex items-center space-x-2 text-destructive py-4">
-                  <AlertTriangle className="h-5 w-5" />
-                  <span>{trendAnalysisError}</span>
+              
+              { !trendAnalysisLoading && projectedBalanceNext30Days !== null && (
+                 <>
+                    <div className="text-2xl font-bold">
+                        {CURRENCY_SYMBOL}{projectedBalanceNext30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Saldo projetado (próximos 30 dias - estimativa simples)
+                    </p>
+                 </>
+              )}
+
+              {trendAnalysisLoading && projectedBalanceNext30Days !== null && ( // Show loader for trend only if projection is already visible
+                <div className="flex items-center space-x-2 py-2 mt-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm">Analisando tendência...</span>
                 </div>
               )}
-              {!loading && !trendAnalysisLoading && !trendAnalysisError && transactions.length > 0 && (
-                <>
-                  {projectedBalanceNext30Days !== null ? (
-                    <>
-                      <div className="text-2xl font-bold">
-                        {CURRENCY_SYMBOL}{projectedBalanceNext30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Saldo projetado (próximos 30 dias - estimativa simples)
-                      </p>
-                    </>
-                  ) : (
-                       <p className="text-sm text-muted-foreground">Não foi possível calcular a projeção.</p>
-                  )}
-                  {trendAnalysis ? (
-                    <p className="mt-3 text-sm">{trendAnalysis}</p>
-                  ) : (
-                     <p className="mt-3 text-sm text-muted-foreground">Análise de tendência indisponível no momento.</p>
-                  )}
-                </>
+
+              {trendAnalysisError && !trendAnalysisLoading && (
+                <div className="flex items-center space-x-2 text-destructive py-2 mt-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span className="text-sm">{trendAnalysisError}</span>
+                </div>
               )}
+
+              {!trendAnalysisLoading && !trendAnalysisError && trendAnalysis && (
+                <p className="mt-3 text-sm">{trendAnalysis}</p>
+              )}
+              
+              {!trendAnalysisLoading && !trendAnalysisError && !trendAnalysis && transactions.length > 0 && (incomeLast30Days > 0 || expensesLast30Days > 0) && (
+                 <p className="mt-3 text-sm text-muted-foreground">Análise de tendência indisponível no momento.</p>
+              )}
+
             </CardContent>
           </Card>
 
@@ -527,7 +511,7 @@ export default function DashboardPage() {
                   <p className="mt-3 text-sm text-muted-foreground">Nenhuma recomendação específica no momento. Continue acompanhando suas finanças!</p>
                 )
               )}
-               {!loading && !adviceLoading && !adviceError && transactions.length > 0 && !financialAdvice && (
+               {!loading && !adviceLoading && !adviceError && transactions.length > 0 && !financialAdvice && (incomeLast30Days > 0 || expensesLast30Days > 0) && (
                  <p className="mt-3 text-sm text-muted-foreground">Recomendações indisponíveis no momento.</p>
                )}
             </CardContent>
@@ -537,7 +521,7 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline font-bold">Atividade Recente</CardTitle>
+          <CardTitle className="font-headline font-bold text-2xl">Atividade Recente</CardTitle>
           <CardDescription>Exibindo suas últimas 5 transações.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -581,3 +565,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
