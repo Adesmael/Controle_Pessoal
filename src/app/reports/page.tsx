@@ -11,13 +11,14 @@ import { Button } from '@/components/ui/button';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, FileSpreadsheet, CalendarIcon, FilterX } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, FileSpreadsheet, CalendarIcon, FilterX, Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from '@/lib/utils';
 
 export default function ReportsPage() {
@@ -27,6 +28,7 @@ export default function ReportsPage() {
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!supabase) {
@@ -63,13 +65,8 @@ export default function ReportsPage() {
     fetchAllTransactions();
   }, [toast]);
 
-  const applyDateFilter = () => {
-    if (!startDate && !endDate) {
-      setDisplayedTransactions(allTransactions);
-      return;
-    }
-
-    let filtered = allTransactions;
+  const applyFilters = () => {
+    let filtered = [...allTransactions];
 
     if (startDate) {
       const filterStart = startOfDay(startDate);
@@ -80,12 +77,22 @@ export default function ReportsPage() {
       const filterEnd = endOfDay(endDate);
       filtered = filtered.filter(t => t.date <= filterEnd);
     }
+
+    if (selectedCategory) {
+      filtered = filtered.filter(t => {
+        if (t.type === 'expense') {
+          return t.category === selectedCategory;
+        }
+        return true; // Manter transações de receita
+      });
+    }
     setDisplayedTransactions(filtered);
   };
 
-  const clearDateFilter = () => {
+  const clearFilters = () => {
     setStartDate(undefined);
     setEndDate(undefined);
+    setSelectedCategory(undefined);
     setDisplayedTransactions(allTransactions);
   };
 
@@ -172,6 +179,28 @@ export default function ReportsPage() {
     const category = EXPENSE_CATEGORIES.find(cat => cat.value === categoryValue);
     return category ? <category.icon className="h-4 w-4 mr-1 inline-block text-muted-foreground" /> : null;
   };
+  
+  const transactionListDescription = useMemo(() => {
+    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas.';
+    const dateParts: string[] = [];
+    if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
+    if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
+
+    if (dateParts.length > 0 || selectedCategory) {
+      descriptionText = 'Exibindo transações ';
+      if (dateParts.length > 0) {
+        descriptionText += dateParts.join(' ');
+      }
+      if (selectedCategory) {
+        const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
+        descriptionText += `${dateParts.length > 0 ? '. ' : ''}Despesas filtradas por: ${categoryLabel}.`;
+      } else if (dateParts.length > 0) {
+        descriptionText += '.';
+      }
+    }
+    return descriptionText;
+  }, [startDate, endDate, selectedCategory]);
+
 
   return (
     <div className="space-y-8">
@@ -214,70 +243,136 @@ export default function ReportsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-lg">Filtrar Transações por Data</CardTitle>
+          <CardTitle className="font-headline text-lg">Filtrar Transações</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="grid gap-2 w-full sm:w-auto">
-            <label htmlFor="startDate" className="text-sm font-medium">Data Inicial</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="startDate"
-                  variant={'outline'}
-                  className={cn(
-                    'w-full sm:w-[240px] justify-start text-left font-normal',
-                    !startDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, 'dd/MM/yyyy', { locale: ptBR }) : <span>Escolha uma data</span>}
+        <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                <div className="grid gap-2 w-full">
+                    <label htmlFor="startDate" className="text-sm font-medium">Data Inicial</label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="startDate"
+                        variant={'outline'}
+                        className={cn(
+                            'w-full justify-start text-left font-normal',
+                            !startDate && 'text-muted-foreground'
+                        )}
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, 'dd/MM/yyyy', { locale: ptBR }) : <span>Escolha uma data</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        initialFocus
+                        locale={ptBR}
+                        disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                        />
+                    </PopoverContent>
+                    </Popover>
+                </div>
+                <div className="grid gap-2 w-full">
+                    <label htmlFor="endDate" className="text-sm font-medium">Data Final</label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="endDate"
+                        variant={'outline'}
+                        className={cn(
+                            'w-full justify-start text-left font-normal',
+                            !endDate && 'text-muted-foreground'
+                        )}
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {endDate ? format(endDate, 'dd/MM/yyyy', { locale: ptBR }) : <span>Escolha uma data</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        initialFocus
+                        locale={ptBR}
+                        disabled={(date) => date > new Date() || date < (startDate || new Date('1900-01-01'))}
+                        />
+                    </PopoverContent>
+                    </Popover>
+                </div>
+                 <div className="grid gap-2 w-full">
+                    <label htmlFor="categoryFilter" className="text-sm font-medium">Categoria da Despesa</label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            id="categoryFilter"
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                            "w-full justify-between",
+                            !selectedCategory && "text-muted-foreground"
+                            )}
+                        >
+                            {selectedCategory
+                            ? EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label
+                            : "Todas as categorias"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                        <Command>
+                            <CommandInput placeholder="Buscar categoria..." />
+                            <CommandList>
+                            <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                            <CommandGroup>
+                                <CommandItem
+                                key="all-categories"
+                                value="all-categories"
+                                onSelect={() => setSelectedCategory(undefined)}
+                                >
+                                <Check
+                                    className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !selectedCategory ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                Todas as categorias
+                                </CommandItem>
+                                {EXPENSE_CATEGORIES.map((category) => (
+                                <CommandItem
+                                    value={category.label}
+                                    key={category.value}
+                                    onSelect={() => {
+                                    setSelectedCategory(category.value);
+                                    }}
+                                >
+                                    <Check
+                                    className={cn(
+                                        "mr-2 h-4 w-4",
+                                        category.value === selectedCategory ? "opacity-100" : "opacity-0"
+                                    )}
+                                    />
+                                    <category.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                    {category.label}
+                                </CommandItem>
+                                ))}
+                            </CommandGroup>
+                            </CommandList>
+                        </Command>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <Button onClick={applyFilters} className="w-full sm:w-auto">Aplicar Filtros</Button>
+                <Button onClick={clearFilters} variant="outline" className="w-full sm:w-auto">
+                    <FilterX className="mr-2 h-4 w-4" />
+                    Limpar Filtros
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  initialFocus
-                  locale={ptBR}
-                  disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="grid gap-2 w-full sm:w-auto">
-            <label htmlFor="endDate" className="text-sm font-medium">Data Final</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="endDate"
-                  variant={'outline'}
-                  className={cn(
-                    'w-full sm:w-[240px] justify-start text-left font-normal',
-                    !endDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, 'dd/MM/yyyy', { locale: ptBR }) : <span>Escolha uma data</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
-                  initialFocus
-                  locale={ptBR}
-                  disabled={(date) => date > new Date() || date < (startDate || new Date('1900-01-01'))}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <Button onClick={applyDateFilter} className="w-full sm:w-auto">Filtrar</Button>
-          <Button onClick={clearDateFilter} variant="outline" className="w-full sm:w-auto">
-            <FilterX className="mr-2 h-4 w-4" />
-            Limpar Filtro
-          </Button>
+            </div>
         </CardContent>
       </Card>
 
@@ -291,12 +386,7 @@ export default function ReportsPage() {
           <div>
             <CardTitle className="font-headline text-xl">Transações do Período</CardTitle>
             <CardDescription>
-              {startDate && endDate ?
-                `Exibindo transações de ${format(startDate, 'dd/MM/yy')} a ${format(endDate, 'dd/MM/yy')}.` :
-                startDate ? `Exibindo transações a partir de ${format(startDate, 'dd/MM/yy')}.` :
-                endDate ? `Exibindo transações até ${format(endDate, 'dd/MM/yy')}.` :
-                'Uma lista completa de suas receitas e despesas registradas.'
-              }
+              {transactionListDescription}
             </CardDescription>
           </div>
           <Button onClick={handleExportToExcel} variant="outline" className="w-full sm:w-auto">
@@ -346,7 +436,7 @@ export default function ReportsPage() {
           ) : (
              <div className="text-center py-10">
                <Image src="https://placehold.co/300x200.png" alt="Nenhuma transação encontrada" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="documento pesquisa vazia"/>
-              <p className="text-muted-foreground">Nenhuma transação encontrada para o período selecionado ou nenhuma transação registrada.</p>
+              <p className="text-muted-foreground">Nenhuma transação encontrada para os filtros selecionados ou nenhuma transação registrada.</p>
             </div>
           )}
         </CardContent>
@@ -354,3 +444,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+
