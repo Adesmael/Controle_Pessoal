@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3 } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3, MessageCircleWarning } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
-import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
+import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY, WHATSAPP_ALERT_NUMBER_KEY } from '@/lib/constants';
 import { format, subDays, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -34,6 +34,12 @@ export default function DashboardPage() {
 
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [currentMonthExpenses, setCurrentMonthExpenses] = useState<number>(0);
+  const [whatsappAlertNumber, setWhatsappAlertNumber] = useState<string | null>(null);
+
+  // Refs para controlar se os alertas de meta já foram disparados
+  const alert85DispatchedRef = useRef(false);
+  const alert100DispatchedRef = useRef(false);
+
 
   useEffect(() => {
     if (!supabase) {
@@ -42,6 +48,7 @@ export default function DashboardPage() {
     }
     fetchTransactions();
     loadMonthlyGoal();
+    loadWhatsappAlertNumber();
   }, []);
 
   function loadMonthlyGoal() {
@@ -57,20 +64,27 @@ export default function DashboardPage() {
       setMonthlyGoal(null);
     }
   }
+
+  function loadWhatsappAlertNumber() {
+    const storedNumber = localStorage.getItem(WHATSAPP_ALERT_NUMBER_KEY);
+    setWhatsappAlertNumber(storedNumber);
+  }
   
   useEffect(() => {
-    // Recalculate current month expenses when transactions change or goal is loaded/reloaded
-    // This ensures currentMonthExpenses is up-to-date if transactions are fetched after goal load.
     if (transactions.length > 0) {
       calculateCurrentMonthExpenses();
     }
-  }, [transactions, monthlyGoal]); // Rerun if transactions or monthlyGoal changes
+  }, [transactions, monthlyGoal]); 
 
-  // Listener for localStorage changes from other tabs/windows (optional but good for UX)
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === MONTHLY_SPENDING_GOAL_KEY) {
-        loadMonthlyGoal(); // Reload goal if it changes in another tab
+        loadMonthlyGoal(); 
+        alert85DispatchedRef.current = false; // Resetar flags de alerta se a meta mudar
+        alert100DispatchedRef.current = false;
+      }
+      if (event.key === WHATSAPP_ALERT_NUMBER_KEY) {
+        loadWhatsappAlertNumber();
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -236,8 +250,43 @@ export default function DashboardPage() {
 
   const goalProgress = getGoalProgress();
   let goalProgressColor = "bg-green-500"; // Cor padrão (verde)
-  let goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de ${CURRENCY_SYMBOL}${monthlyGoal?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
+  let goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de ${CURRENCY_SYMBOL}${monthlyGoal?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0,00'}.`;
   let remainingAmount = monthlyGoal ? monthlyGoal - currentMonthExpenses : 0;
+
+  // Disparar alertas de meta
+  useEffect(() => {
+    if (monthlyGoal !== null && monthlyGoal > 0) {
+      const progress = (currentMonthExpenses / monthlyGoal) * 100;
+      let alertMessageSuffix = "";
+      if (whatsappAlertNumber) {
+        alertMessageSuffix = ` Um alerta (simulado) seria enviado para ${whatsappAlertNumber}.`;
+      }
+
+      if (progress >= 100 && !alert100DispatchedRef.current) {
+        toast({
+          title: '🔴 Meta de Gastos Atingida!',
+          description: `Você atingiu/ultrapassou sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.${alertMessageSuffix}`,
+          variant: 'destructive',
+          duration: 7000,
+        });
+        alert100DispatchedRef.current = true;
+        alert85DispatchedRef.current = true; // Garante que o de 85% não dispare depois
+      } else if (progress >= 85 && progress < 100 && !alert85DispatchedRef.current) {
+         toast({
+          title: '🟡 Atenção: Meta de Gastos Próxima!',
+          description: `Você já utilizou ${progress.toFixed(0)}% da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.${alertMessageSuffix}`,
+          variant: 'default', // Usar default ou um tom de aviso se existir
+          duration: 7000,
+        });
+        alert85DispatchedRef.current = true;
+      }
+
+      // Resetar flags se os gastos diminuirem abaixo dos limites (ex: exclusão de despesa)
+      if (progress < 100) alert100DispatchedRef.current = false;
+      if (progress < 85) alert85DispatchedRef.current = false;
+    }
+  }, [currentMonthExpenses, monthlyGoal, whatsappAlertNumber, toast]);
+
 
   if (monthlyGoal !== null && monthlyGoal > 0) {
     if (goalProgress >= 100) {
@@ -271,7 +320,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (loading && transactions.length === 0) { // Só mostra loading full screen se não houver transações ainda
+  if (loading && transactions.length === 0) { 
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -365,7 +414,7 @@ export default function DashboardPage() {
           ) : monthlyGoal !== null && monthlyGoal > 0 ? (
             <>
               <Progress value={goalProgress > 100 ? 100 : goalProgress} className="w-full h-3 mb-2" 
-                indicatorClassName={goalProgressColor} // Pass custom class for indicator
+                indicatorClassName={goalProgressColor} 
               />
               <p className="text-sm text-muted-foreground">{goalStatusMessage}</p>
             </>

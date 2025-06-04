@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
+import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY, WHATSAPP_ALERT_NUMBER_KEY } from '@/lib/constants';
 import { Label } from '@/components/ui/label';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, MessageCircleWarning } from 'lucide-react';
 
 export default function SettingsPage() {
   const [goal, setGoal] = useState<string>('');
   const [currentGoal, setCurrentGoal] = useState<number | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState<string>('');
+  const [currentWhatsappNumber, setCurrentWhatsappNumber] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -23,6 +25,12 @@ export default function SettingsPage() {
         setCurrentGoal(parsedGoal);
         setGoal(parsedGoal.toString());
       }
+    }
+
+    const storedWhatsappNumber = localStorage.getItem(WHATSAPP_ALERT_NUMBER_KEY);
+    if (storedWhatsappNumber) {
+      setCurrentWhatsappNumber(storedWhatsappNumber);
+      setWhatsappNumber(storedWhatsappNumber);
     }
   }, []);
 
@@ -42,6 +50,33 @@ export default function SettingsPage() {
       title: 'Meta Salva!',
       description: `Sua nova meta de gastos mensais de ${CURRENCY_SYMBOL}${numericGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} foi salva.`,
     });
+  };
+
+  const handleSaveWhatsappNumber = () => {
+    // Simples validação de exemplo (pode ser aprimorada)
+    if (whatsappNumber && !/^\d{10,15}$/.test(whatsappNumber.replace(/\D/g, ''))) {
+      toast({
+        title: 'Número Inválido',
+        description: 'Por favor, insira um número de WhatsApp válido (apenas dígitos, entre 10 e 15).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (whatsappNumber) {
+      localStorage.setItem(WHATSAPP_ALERT_NUMBER_KEY, whatsappNumber);
+      setCurrentWhatsappNumber(whatsappNumber);
+      toast({
+        title: 'Número de WhatsApp Salvo!',
+        description: `O número para alertas (simulados) foi salvo como ${whatsappNumber}.`,
+      });
+    } else {
+      localStorage.removeItem(WHATSAPP_ALERT_NUMBER_KEY);
+      setCurrentWhatsappNumber(null);
+      toast({
+        title: 'Número de WhatsApp Removido',
+        description: 'O número para alertas (simulados) foi removido.',
+      });
+    }
   };
 
   return (
@@ -80,7 +115,42 @@ export default function SettingsPage() {
             </div>
           </div>
           <Button onClick={handleSaveGoal} className="w-full sm:w-auto">
-            Salvar Meta
+            Salvar Meta de Gastos
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-xl flex items-center">
+            <MessageCircleWarning className="mr-2 h-5 w-5 text-blue-500" />
+            Alertas de Saldo (Simulação WhatsApp)
+          </CardTitle>
+          <CardDescription>
+            Insira um número de WhatsApp para simular o envio de alertas quando sua meta de gastos estiver próxima de ser atingida.
+            <strong className="block mt-1">Nenhuma mensagem real será enviada. Esta é apenas uma simulação para demonstração.</strong>
+            {currentWhatsappNumber && (
+              <span className="block mt-2 font-medium">
+                Número configurado para simulação: {currentWhatsappNumber}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="whatsappNumber">Número de WhatsApp (apenas dígitos)</Label>
+            <Input
+              id="whatsappNumber"
+              type="tel"
+              placeholder="Ex: 55119XXXXXXXX"
+              value={whatsappNumber}
+              onChange={(e) => setWhatsappNumber(e.target.value)}
+              className="mt-1"
+            />
+             <p className="text-xs text-muted-foreground mt-1">Deixe em branco para não simular alertas no WhatsApp.</p>
+          </div>
+          <Button onClick={handleSaveWhatsappNumber} className="w-full sm:w-auto">
+            Salvar Número para Alertas
           </Button>
         </CardContent>
       </Card>

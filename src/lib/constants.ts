@@ -40,6 +40,7 @@ export const INCOME_SOURCES: IncomeSource[] = [
 
 export const CURRENCY_SYMBOL = 'R$'; // Símbolo da moeda brasileira
 export const MONTHLY_SPENDING_GOAL_KEY = 'monthlySpendingGoal';
+export const WHATSAPP_ALERT_NUMBER_KEY = 'whatsappAlertNumber'; // Nova chave
 
 // Ícone para a página de configurações
 export { Settings as SettingsIcon };
