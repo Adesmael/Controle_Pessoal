@@ -19,7 +19,14 @@ import * as XLSX from 'xlsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
+
+const typeFilterOptions = [
+  { value: 'all', label: 'Todas' },
+  { value: 'income', label: 'Receitas' },
+  { value: 'expense', label: 'Despesas' },
+];
 
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -29,6 +36,39 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [selectedType, setSelectedType] = useState<TransactionType | 'all' | undefined>('all');
+  
+  const transactionListDescription = useMemo(() => {
+    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas.';
+    const dateParts: string[] = [];
+    if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
+    if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
+
+    let filtersApplied = false;
+
+    if (dateParts.length > 0) {
+      descriptionText = 'Exibindo transações ' + dateParts.join(' ');
+      filtersApplied = true;
+    }
+
+    if (selectedType && selectedType !== 'all') {
+      const typeLabel = typeFilterOptions.find(opt => opt.value === selectedType)?.label || selectedType;
+      if (!filtersApplied) descriptionText = 'Exibindo transações ';
+      descriptionText += `${filtersApplied ? '. ' : ''}Tipo: ${typeLabel}`;
+      filtersApplied = true;
+    }
+    
+    if (selectedCategory) {
+      const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
+      if (!filtersApplied) descriptionText = 'Exibindo transações ';
+      descriptionText += `${filtersApplied ? '. ' : ''}Despesas filtradas por: ${categoryLabel}`;
+      filtersApplied = true;
+    }
+    
+    if (filtersApplied) descriptionText += '.';
+
+    return descriptionText;
+  }, [startDate, endDate, selectedCategory, selectedType]);
 
   useEffect(() => {
     if (!supabase) {
@@ -36,7 +76,7 @@ export default function ReportsPage() {
       return;
     }
     async function fetchAllTransactions() {
-      if (!supabase) return; // Double check, though already checked above
+      if (!supabase) return; 
       setLoading(true);
       const { data, error } = await supabase
         .from('transactions')
@@ -63,7 +103,7 @@ export default function ReportsPage() {
       setLoading(false);
     }
     fetchAllTransactions();
-  }, [toast]); // supabase is stable, toast is stable
+  }, [toast]); 
 
   const summary = useMemo(() => {
     const totalIncome = displayedTransactions
@@ -76,26 +116,6 @@ export default function ReportsPage() {
     return { totalIncome, totalExpenses, balance };
   }, [displayedTransactions]);
   
-  const transactionListDescription = useMemo(() => {
-    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas.';
-    const dateParts: string[] = [];
-    if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
-    if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
-
-    if (dateParts.length > 0 || selectedCategory) {
-      descriptionText = 'Exibindo transações ';
-      if (dateParts.length > 0) {
-        descriptionText += dateParts.join(' ');
-      }
-      if (selectedCategory) {
-        const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
-        descriptionText += `${dateParts.length > 0 ? '. ' : ''}Despesas filtradas por: ${categoryLabel}.`;
-      } else if (dateParts.length > 0) {
-        descriptionText += '.';
-      }
-    }
-    return descriptionText;
-  }, [startDate, endDate, selectedCategory]);
 
   const applyFilters = () => {
     let filtered = [...allTransactions];
@@ -109,18 +129,20 @@ export default function ReportsPage() {
       const filterEnd = endOfDay(endDate);
       filtered = filtered.filter(t => t.date <= filterEnd);
     }
+    
+    if (selectedType && selectedType !== 'all') {
+      filtered = filtered.filter(t => t.type === selectedType);
+    }
 
     if (selectedCategory) {
       filtered = filtered.filter(t => {
         if (t.type === 'expense') {
           return t.category === selectedCategory;
         }
-        // If filtering by expense category, we might want to decide if income transactions are shown.
-        // For now, let's assume if an expense category is selected, we only show expenses of that category
-        // AND all income transactions. If the goal is to *only* show expenses of that category, this needs adjustment.
-        // Current behavior: if expense category selected, non-matching expenses are filtered out, income remains.
-        // To only show matching expenses and no income:
-        // return t.type === 'expense' && t.category === selectedCategory;
+        // If filtering by expense category, income transactions are shown (unless type filter is 'expense')
+        // If selectedType is 'income', this 'expense' block is skipped for income items.
+        // If selectedType is 'expense', only expenses reach here, then category filter applies.
+        // If selectedType is 'all', income items pass, expenses are category filtered.
         return true; 
       });
     }
@@ -131,6 +153,7 @@ export default function ReportsPage() {
     setStartDate(undefined);
     setEndDate(undefined);
     setSelectedCategory(undefined);
+    setSelectedType('all');
     setDisplayedTransactions(allTransactions);
   };
 
@@ -251,7 +274,7 @@ export default function ReportsPage() {
           <CardTitle className="font-headline text-lg">Filtrar Transações</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                 <div className="grid gap-2 w-full">
                     <label htmlFor="startDate" className="text-sm font-medium">Data Inicial</label>
                     <Popover>
@@ -307,6 +330,24 @@ export default function ReportsPage() {
                         />
                     </PopoverContent>
                     </Popover>
+                </div>
+                <div className="grid gap-2 w-full">
+                    <label htmlFor="typeFilter" className="text-sm font-medium">Tipo de Transação</label>
+                    <Select
+                        value={selectedType}
+                        onValueChange={(value) => setSelectedType(value as TransactionType | 'all' | undefined)}
+                    >
+                        <SelectTrigger id="typeFilter" className="w-full">
+                        <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {typeFilterOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
                 </div>
                  <div className="grid gap-2 w-full">
                     <label htmlFor="categoryFilter" className="text-sm font-medium">Categoria da Despesa</label>
@@ -455,3 +496,6 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+
+    
