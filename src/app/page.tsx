@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Sparkles, Target, Edit3 } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Target, Edit3 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY, GOOGLE_API_KEY_MISSING_ERROR } from '@/lib/constants';
 import { format, subDays, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
@@ -15,7 +15,6 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { getFinancialTrend, type FinancialTrendInput, type FinancialTrendOutput } from '@/ai/flows/financial-trend-flow';
-import { getFinancialAdvice, type FinancialAdviceInput, type FinancialAdviceOutput, type ExpenseCategoryDetail } from '@/ai/flows/financial-advice-flow';
 import { Progress } from "@/components/ui/progress";
 
 export default function DashboardPage() {
@@ -27,10 +26,6 @@ export default function DashboardPage() {
   const [projectedBalanceNext30Days, setProjectedBalanceNext30Days] = useState<number | null>(null);
   const [trendAnalysisLoading, setTrendAnalysisLoading] = useState(false);
   const [trendAnalysisError, setTrendAnalysisError] = useState<string | null>(null);
-
-  const [financialAdvice, setFinancialAdvice] = useState<string[] | null>(null);
-  const [adviceLoading, setAdviceLoading] = useState(false);
-  const [adviceError, setAdviceError] = useState<string | null>(null);
 
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [currentMonthExpenses, setCurrentMonthExpenses] = useState<number>(0);
@@ -66,7 +61,7 @@ export default function DashboardPage() {
     if (transactions.length > 0) {
       calculateCurrentMonthExpenses();
     } else if (!loading && transactions.length === 0) {
-      setCurrentMonthExpenses(0); // Reset if no transactions
+      setCurrentMonthExpenses(0); 
     }
   }, [transactions, monthlyGoal, loading]); 
 
@@ -164,9 +159,6 @@ export default function DashboardPage() {
       setTrendAnalysisLoading(true);
       setTrendAnalysisError(null);
       setTrendAnalysis(null); 
-      setAdviceLoading(true);
-      setAdviceError(null);
-      setFinancialAdvice(null);
       
       const netChangeLast30Days = incomeLast30Days - expensesLast30Days;
       setProjectedBalanceNext30Days(balance + netChangeLast30Days);
@@ -184,7 +176,9 @@ export default function DashboardPage() {
           console.error('Error fetching trend analysis:', error);
           let errorMessage = 'Falha ao obter análise de tendência.';
           if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
-            errorMessage = GOOGLE_API_KEY_MISSING_ERROR;
+            errorMessage = GOOGLE_API_KEY_MISSING_ERROR + ' (Trend Analysis)';
+          } else if (error.message && (error.message.includes('503') || error.message.toLowerCase().includes('overloaded'))) {
+            errorMessage = 'O serviço de IA para análise de tendência parece estar ocupado. Por favor, tente novamente em alguns instantes.';
           } else if (error.message) {
             errorMessage = error.message;
           }
@@ -194,70 +188,19 @@ export default function DashboardPage() {
           setTrendAnalysisLoading(false);
         }
       };
-
-      const fetchFinancialAdvice = async () => {
-        const today = new Date();
-        const thirtyDaysAgo = subDays(today, 30);
-        const last30DaysTransactions = transactions.filter(t => {
-          const transactionDate = t.date;
-          return isValid(transactionDate) && transactionDate >= thirtyDaysAgo && transactionDate <= today;
-        });
-
-        const expenseBreakdownData: ExpenseCategoryDetail[] = EXPENSE_CATEGORIES.map(categoryConst => {
-          const categoryExpenses = last30DaysTransactions
-            .filter(t => t.type === 'expense' && t.category === categoryConst.value)
-            .reduce((sum, t) => sum + Number(t.amount), 0);
-          
-          return {
-            categoryValue: categoryConst.value,
-            categoryLabel: categoryConst.label,
-            totalAmount: categoryExpenses,
-            percentageOfTotalExpenses: expensesLast30Days > 0 ? (categoryExpenses / expensesLast30Days) * 100 : 0,
-          };
-        }).filter(detail => detail.totalAmount > 0); 
-
-        try {
-          const adviceInput: FinancialAdviceInput = {
-            recentIncome: incomeLast30Days,
-            recentTotalExpenses: expensesLast30Days,
-            expenseBreakdown: expenseBreakdownData,
-            currentBalance: balance,
-          };
-          const result: FinancialAdviceOutput = await getFinancialAdvice(adviceInput);
-          setFinancialAdvice(result.recommendations);
-        } catch (error: any) {
-          console.error('Error fetching financial advice:', error);
-          let errorMessage = 'Falha ao obter recomendações financeiras.';
-           if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
-            errorMessage = GOOGLE_API_KEY_MISSING_ERROR;
-          } else if (error.message) {
-            errorMessage = error.message;
-          }
-          setAdviceError(errorMessage);
-          setFinancialAdvice(null);
-        } finally {
-          setAdviceLoading(false);
-        }
-      };
       
       if (incomeLast30Days > 0 || expensesLast30Days > 0) {
          calculateTrendAndProjection();
-         fetchFinancialAdvice();
       } else {
         setTrendAnalysisLoading(false);
-        setAdviceLoading(false);
         setProjectedBalanceNext30Days(balance); 
         setTrendAnalysis("Sem movimentações recentes para análise de tendência.");
-        setFinancialAdvice(["Sem movimentações recentes para gerar recomendações."]);
       }
     } else if (!loading && transactions.length === 0) {
       setProjectedBalanceNext30Days(null);
       setTrendAnalysis(null);
       setTrendAnalysisLoading(false);
       setTrendAnalysisError(null);
-      setFinancialAdvice(null);
-      setAdviceLoading(false);
-      setAdviceError(null);
     }
   }, [transactions, balance, loading, supabase, incomeLast30Days, expensesLast30Days]);
 
@@ -267,7 +210,7 @@ export default function DashboardPage() {
   };
 
   const goalProgress = getGoalProgress();
-  let goalProgressColor = "bg-green-500";
+  let goalProgressColor = "bg-primary"; // Usando a cor primária do tema
   let goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de ${CURRENCY_SYMBOL}${monthlyGoal?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0,00'}.`;
   let remainingAmount = monthlyGoal ? monthlyGoal - currentMonthExpenses : 0;
 
@@ -307,10 +250,10 @@ export default function DashboardPage() {
 
   if (monthlyGoal !== null && monthlyGoal > 0) {
     if (goalProgress >= 100) {
-      goalProgressColor = "bg-red-500"; 
+      goalProgressColor = "bg-destructive"; 
       goalStatusMessage = `Meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ultrapassada em ${CURRENCY_SYMBOL}${Math.abs(remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!`;
     } else if (goalProgress >= 75) {
-      goalProgressColor = "bg-yellow-500"; 
+      goalProgressColor = "bg-yellow-500"; // Amarelo para alerta
       goalStatusMessage = `Atenção! Você já gastou ${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${goalProgress.toFixed(0)}%) da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
     } else {
         goalStatusMessage = `Você gastou ${CURRENCY_SYMBOL}${currentMonthExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${goalProgress.toFixed(0)}%) da sua meta de ${CURRENCY_SYMBOL}${monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Restam ${CURRENCY_SYMBOL}${remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -390,7 +333,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-headline font-bold text-base">Saldo Atual</CardTitle>
-            <Activity className="h-5 w-5 text-blue-500" />
+            <Activity className="h-5 w-5 text-accent" />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold font-body ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
@@ -406,7 +349,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start">
             <div>
                 <CardTitle className="font-headline font-bold text-base flex items-center">
-                    <Target className="mr-2 h-5 w-5 text-blue-500" />
+                    <Target className="mr-2 h-5 w-5 text-accent" />
                     Meta de Gastos Mensal
                 </CardTitle>
                 {monthlyGoal !== null && (
@@ -452,13 +395,13 @@ export default function DashboardPage() {
       </Card>
       
       {supabase && (
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-1"> {/* Alterado para md:grid-cols-1 para que o card ocupe a largura total */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="font-headline font-bold text-base">Previsão e Tendência de Saldo</CardTitle>
               <Lightbulb className="h-5 w-5 text-yellow-500" />
             </CardHeader>
-            <CardContent className="min-h-[120px]">
+            <CardContent className="min-h-[120px]"> {/* Ajustado min-h se necessário */}
               { (loading || (trendAnalysisLoading && transactions.length > 0 && projectedBalanceNext30Days === null) ) && !trendAnalysisError && (
                   <div className="flex items-center space-x-2 py-4">
                       <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -505,43 +448,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="font-headline font-bold text-base">Recomendações Financeiras</CardTitle>
-              <Sparkles className="h-5 w-5 text-purple-500" />
-            </CardHeader>
-            <CardContent className="min-h-[120px]">
-              { (loading || (adviceLoading && transactions.length > 0) ) && !adviceError && (
-                  <div className="flex items-center space-x-2 py-4">
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <span>{loading && transactions.length === 0 ? 'Carregando dados...' : 'Gerando recomendações...'}</span>
-                  </div>
-              )}
-              {!loading && transactions.length === 0 && !adviceLoading && (
-                   <p className="text-sm text-muted-foreground py-4">Adicione transações para receber recomendações financeiras.</p>
-              )}
-              {adviceError && !adviceLoading && (
-                <div className="flex items-start space-x-2 text-destructive py-4">
-                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm">{adviceError}</span>
-                </div>
-              )}
-              {!loading && !adviceLoading && !adviceError && transactions.length > 0 && financialAdvice && (
-                financialAdvice.length > 0 ? (
-                  <ul className="mt-3 space-y-2 text-sm list-disc list-inside">
-                    {financialAdvice.map((advice, index) => (
-                      <li key={index}>{advice}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-3 text-sm text-muted-foreground">Nenhuma recomendação específica no momento. Continue acompanhando suas finanças!</p>
-                )
-              )}
-               {!loading && !adviceLoading && !adviceError && transactions.length > 0 && !financialAdvice && (incomeLast30Days > 0 || expensesLast30Days > 0) && (
-                 <p className="mt-3 text-sm text-muted-foreground">Recomendações indisponíveis no momento.</p>
-               )}
-            </CardContent>
-          </Card>
+          {/* Card de Recomendações Financeiras Removido */}
         </div>
       )}
 
@@ -592,3 +499,4 @@ export default function DashboardPage() {
   );
 }
 
+    
