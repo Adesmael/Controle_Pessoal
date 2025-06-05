@@ -161,13 +161,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (transactions.length > 0 && supabase && !loading) { 
-      const calculateTrendAndProjection = async () => {
-        setTrendAnalysisLoading(true);
-        setTrendAnalysisError(null);
-        setTrendAnalysis(null); 
-        const netChangeLast30Days = incomeLast30Days - expensesLast30Days;
-        setProjectedBalanceNext30Days(balance + netChangeLast30Days);
+      setTrendAnalysisLoading(true);
+      setTrendAnalysisError(null);
+      setTrendAnalysis(null); 
+      setAdviceLoading(true);
+      setAdviceError(null);
+      setFinancialAdvice(null);
+      
+      const netChangeLast30Days = incomeLast30Days - expensesLast30Days;
+      setProjectedBalanceNext30Days(balance + netChangeLast30Days);
 
+      const calculateTrendAndProjection = async () => {
         try {
           const analysisInput: FinancialTrendInput = {
             currentBalance: balance,
@@ -192,10 +196,6 @@ export default function DashboardPage() {
       };
 
       const fetchFinancialAdvice = async () => {
-        setAdviceLoading(true);
-        setAdviceError(null);
-        setFinancialAdvice(null);
-
         const today = new Date();
         const thirtyDaysAgo = subDays(today, 30);
         const last30DaysTransactions = transactions.filter(t => {
@@ -370,20 +370,20 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-headline font-bold text-base">Receita Total</CardTitle>
-            <TrendingUp className="h-5 w-5 text-green-500" />
+            <TrendingUp className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-body">{CURRENCY_SYMBOL}{totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="text-2xl font-bold font-body text-primary">{CURRENCY_SYMBOL}{totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <p className="text-xs text-muted-foreground">De todas as fontes</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-headline font-bold text-base">Despesa Total</CardTitle>
-            <TrendingDown className="h-5 w-5 text-red-500" />
+            <TrendingDown className="h-5 w-5 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-body">{CURRENCY_SYMBOL}{totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="text-2xl font-bold font-body text-destructive">{CURRENCY_SYMBOL}{totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <p className="text-xs text-muted-foreground">De todas as categorias</p>
           </CardContent>
         </Card>
@@ -393,7 +393,7 @@ export default function DashboardPage() {
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold font-body ${balance >= 0 ? '' : 'text-destructive'}`}>
+            <div className={`text-2xl font-bold font-body ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
               {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">Sua saúde financeira</p>
@@ -471,7 +471,7 @@ export default function DashboardPage() {
               
               {projectedBalanceNext30Days !== null && (
                  <>
-                    <div className="text-2xl font-bold">
+                    <div className={`text-2xl font-bold ${projectedBalanceNext30Days >=0 ? 'text-primary' : 'text-destructive'}`}>
                         {CURRENCY_SYMBOL}{projectedBalanceNext30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -572,7 +572,7 @@ export default function DashboardPage() {
                         {transaction.type === 'income' ? 'Receita' : 'Despesa'}
                       </span>
                     </TableCell>
-                    <TableCell className={transaction.type === 'income' ? '' : 'text-destructive'}>
+                    <TableCell className={transaction.type === 'income' ? 'text-primary' : 'text-destructive'}>
                       {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>{isValid(transaction.date) ? format(transaction.date, 'dd/MM/yyyy', { locale: ptBR }) : 'Data inválida'}</TableCell>
