@@ -9,76 +9,52 @@
 # Testing
 /coverage
 
-# Next.js
+# Next.js build output
 /.next/
 /out/
 
-# Vercel (se aplicável)
-.vercel
-
 # Production
 /build
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
 
 # Misc
 .DS_Store
 *.pem
 
-# Environment Variables
-# Ignore todos os arquivos .env por padrão
-.env
-.env.*.local
+# Local Environment Variables
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
+!/.env.example
 
-# Exceto .env.example ou .env.template (se você usar)
-# !.env.example
-# !.env.template
+# Terraform state files
+.terraform/
+*.tfstate
+*.tfstate.*
 
-# Log files
+# IDE config
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Capacitor specific
+/android/
+/ios/
+# /www/ # A pasta www é onde o Capacitor copia os assets web; pode ser ignorada se for gerada dinamicamente.
+#       # Se você modificar manualmente a pasta www e quiser commitar, remova esta linha.
+
+# Debug files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
 # Editor directories and files
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 .idea
+.vscode
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-
-# Firebase (se aplicável)
-.firebase
-firebase-debug.log
-database-debug.log
-
-# Genkit
-.genkit/cache
-.genkit/traces
-
-# Patch package
-/patches
-
-# Arquivos específicos do sistema operacional
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Arquivos de IDE/Editor específicos
-*.bak
-*.ghc.environment.*
-*.orig
-*.tmp
-*~
