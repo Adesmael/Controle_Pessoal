@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import ExpenseForm from '@/components/forms/ExpenseForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { Transaction, TransactionType } from '@/types';
+import type { Transaction } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
-import { Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,37 +23,38 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-// import { supabase } from '@/lib/supabaseClient'; // Supabase removido
+import { getStoredTransactions, addStoredTransaction, deleteStoredTransaction } from '@/lib/transactionStorage';
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Transaction[]>([]); // Manter para estrutura, mas será local ou vazia
-  const [loading, setLoading] = useState(false); // Não há mais carregamento do Supabase
+  const [expenses, setExpenses] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
-  // useEffect(() => {
-  //   fetchExpenses(); // Removido - não há Supabase para buscar
-  // }, []);
-  
-  // async function fetchExpenses() {
-  //   // Lógica de busca do Supabase removida
-  //   setLoading(false);
-  // }
+  useEffect(() => {
+    const loadExpenses = () => {
+      const allTransactions = getStoredTransactions();
+      setExpenses(allTransactions.filter(tx => tx.type === 'expense').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setLoading(false);
+    };
+    loadExpenses();
+  }, []);
   
   const handleExpenseAdded = (newExpenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
-    // Lógica de inserção do Supabase removida
-    // Poderia adicionar a uma lista local 'expenses' aqui se desejado para a sessão atual
-    const newExpense: Transaction = {
-        ...newExpenseData,
-        id: crypto.randomUUID(),
-        type: 'expense',
-        created_at: new Date().toISOString(),
-    };
-    setExpenses((prevExpenses) => [newExpense, ...prevExpenses].sort((a,b) => b.date.getTime() - a.date.getTime()));
-    toast({
-      title: "Despesa Adicionada (Localmente)!",
-      description: `A despesa "${newExpenseData.description}" foi adicionada à lista local. Os dados não serão salvos permanentemente.`,
-    });
+    const newExpense = addStoredTransaction(newExpenseData, 'expense');
+    if (newExpense) {
+      setExpenses((prevExpenses) => [newExpense, ...prevExpenses].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      toast({
+        title: "Despesa Adicionada!",
+        description: `A despesa "${newExpense.description}" foi salva localmente.`,
+      });
+    } else {
+       toast({
+        title: "Erro ao Adicionar Despesa",
+        description: "Não foi possível salvar a despesa localmente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openDeleteDialog = (transaction: Transaction) => {
@@ -61,17 +62,25 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    // Lógica de exclusão do Supabase removida
     if (!transactionToDelete) return;
-    setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
-    toast({
-      title: "Despesa Excluída (Localmente)!",
-      description: `A despesa "${transactionToDelete.description}" foi excluída da lista local.`,
-    });
+    const success = deleteStoredTransaction(transactionToDelete.id);
+    if (success) {
+      setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
+      toast({
+        title: "Despesa Excluída!",
+        description: `A despesa "${transactionToDelete.description}" foi excluída do armazenamento local.`,
+      });
+    } else {
+      toast({
+        title: "Erro ao Excluir",
+        description: "Não foi possível excluir a despesa do armazenamento local.",
+        variant: "destructive",
+      });
+    }
     setTransactionToDelete(null);
   };
 
-  if (loading) { // Este loading não deve mais ser ativado sem Supabase
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -90,7 +99,7 @@ export default function ExpensesPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Registrar Despesas</h1>
-        <p className="text-muted-foreground">Acompanhe para onde seu dinheiro está indo. Os dados serão mantidos localmente nesta sessão.</p>
+        <p className="text-muted-foreground">Acompanhe para onde seu dinheiro está indo. Os dados serão salvos localmente no seu dispositivo.</p>
       </div>
 
       <Card className="shadow-lg">
@@ -104,7 +113,7 @@ export default function ExpensesPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Despesas Recentes (Local)</CardTitle>
+          <CardTitle className="font-headline text-xl">Despesas Recentes</CardTitle>
           <CardDescription>Exibindo suas últimas despesas registradas localmente.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -131,7 +140,7 @@ export default function ExpensesPage() {
                       <TableCell className="text-destructive"> 
                         {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell>{format(expense.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -154,9 +163,9 @@ export default function ExpensesPage() {
       <AlertDialog open={!!transactionToDelete} onOpenChange={(isOpen) => { if(!isOpen) setTransactionToDelete(null)}}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão (Local)</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a despesa "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} da lista local?
+              Tem certeza que deseja excluir a despesa "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} do armazenamento local?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

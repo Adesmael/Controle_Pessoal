@@ -5,19 +5,20 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, Lightbulb, Target, Edit3 } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, Edit3, Target } from 'lucide-react';
 import type { Transaction } from '@/types';
-import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
-import { format, subDays, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
+import { format, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { getStoredTransactions } from '@/lib/transactionStorage';
 
 export default function DashboardPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]); // Manter para estrutura, mas será sempre vazio
-  const [loading, setLoading] = useState(false); // Não há mais carregamento do Supabase
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
@@ -26,36 +27,35 @@ export default function DashboardPage() {
   const alert85DispatchedRef = useRef(false);
   const alert100DispatchedRef = useRef(false);
 
-  useEffect(() => {
-    loadMonthlyGoal();
-  }, []);
+  // Function to load all data: transactions and monthly goal
+  function loadDashboardData() {
+    setLoading(true);
+    // Load transactions
+    const storedTransactions = getStoredTransactions();
+    setTransactions(storedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
-  function loadMonthlyGoal() {
+    // Load monthly goal
     const storedGoal = localStorage.getItem(MONTHLY_SPENDING_GOAL_KEY);
     if (storedGoal) {
       const parsedGoal = parseFloat(storedGoal);
-      if (!isNaN(parsedGoal) && parsedGoal > 0) {
-        setMonthlyGoal(parsedGoal);
-      } else {
-        setMonthlyGoal(null);
-      }
+      setMonthlyGoal(!isNaN(parsedGoal) && parsedGoal > 0 ? parsedGoal : null);
     } else {
       setMonthlyGoal(null);
     }
+    setLoading(false);
   }
-  
-  useEffect(() => {
-    // Apenas recalcula despesas do mês se houver meta (dados viriam de localStorage ou estado local se implementado)
-    // Como não há transações do Supabase, currentMonthExpenses permanecerá 0 a menos que outra lógica seja adicionada.
-    calculateCurrentMonthExpenses(); 
-  }, [transactions, monthlyGoal, loading]); 
 
   useEffect(() => {
+    loadDashboardData();
+
+    // Listener for storage changes to update transactions and goal
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === MONTHLY_SPENDING_GOAL_KEY) {
-        loadMonthlyGoal(); 
-        alert85DispatchedRef.current = false; 
-        alert100DispatchedRef.current = false;
+      if (event.key === MONTHLY_SPENDING_GOAL_KEY || event.key === 'financialApp_transactions') {
+        loadDashboardData();
+        if (event.key === MONTHLY_SPENDING_GOAL_KEY) {
+            alert85DispatchedRef.current = false; 
+            alert100DispatchedRef.current = false;
+        }
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -63,10 +63,12 @@ export default function DashboardPage() {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
+  
+  useEffect(() => {
+    calculateCurrentMonthExpenses(); 
+  }, [transactions, monthlyGoal]); // Recalculate when transactions or goal change
 
   function calculateCurrentMonthExpenses() {
-    // Esta função agora dependeria de transações locais se fossem implementadas.
-    // Por enquanto, com 'transactions' sempre vazio, currentMonthExpenses será 0.
     const today = new Date();
     const firstDayOfMonth = startOfMonth(today);
     const lastDayOfMonth = endOfMonth(today);
@@ -74,8 +76,8 @@ export default function DashboardPage() {
     const expensesThisMonth = transactions
       .filter(t => 
         t.type === 'expense' && 
-        isValid(t.date) &&
-        isWithinInterval(t.date, { start: firstDayOfMonth, end: lastDayOfMonth })
+        isValid(new Date(t.date)) &&
+        isWithinInterval(new Date(t.date), { start: firstDayOfMonth, end: lastDayOfMonth })
       )
       .reduce((sum, t) => sum + Number(t.amount), 0);
     setCurrentMonthExpenses(expensesThisMonth);
@@ -150,6 +152,15 @@ export default function DashboardPage() {
 
   const recentTransactions = transactions.slice(0, 5); 
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando Painel...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -176,7 +187,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-body text-primary">{CURRENCY_SYMBOL}{totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground">Nenhuma receita registrada</p>
+            {transactions.filter(t => t.type === 'income').length === 0 && <p className="text-xs text-muted-foreground">Nenhuma receita registrada</p>}
           </CardContent>
         </Card>
         <Card>
@@ -186,7 +197,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-body text-destructive">{CURRENCY_SYMBOL}{totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground">Nenhuma despesa registrada</p>
+            {transactions.filter(t => t.type === 'expense').length === 0 && <p className="text-xs text-muted-foreground">Nenhuma despesa registrada</p>}
           </CardContent>
         </Card>
         <Card>
@@ -198,7 +209,7 @@ export default function DashboardPage() {
             <div className={`text-2xl font-bold font-body ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
               {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground">Calculado localmente</p>
+            {transactions.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma transação registrada</p>}
           </CardContent>
         </Card>
       </div>
@@ -248,14 +259,10 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
       
-      <div className="grid gap-6 md:grid-cols-1">
-         {/* Card de Previsão e Tendência Removido pois dependia de dados do Supabase e Genkit */}
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle className="font-headline font-bold text-2xl">Atividade Recente</CardTitle>
-          <CardDescription>Nenhuma transação registrada. Adicione transações para vê-las aqui.</CardDescription>
+          {recentTransactions.length === 0 && <CardDescription>Nenhuma transação registrada. Adicione transações para vê-las aqui.</CardDescription>}
         </CardHeader>
         <CardContent>
           {recentTransactions.length > 0 ? (
@@ -282,7 +289,7 @@ export default function DashboardPage() {
                     <TableCell className={transaction.type === 'income' ? 'text-primary' : 'text-destructive'}>
                       {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell>{isValid(transaction.date) ? format(transaction.date, 'dd/MM/yyyy', { locale: ptBR }) : 'Data inválida'}</TableCell>
+                    <TableCell>{isValid(new Date(transaction.date)) ? format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR }) : 'Data inválida'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

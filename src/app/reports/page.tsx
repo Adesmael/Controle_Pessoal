@@ -8,12 +8,11 @@ import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, FileSpreadsheet, CalendarIcon, FilterX, Check, ChevronsUpDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Loader2, FileSpreadsheet, CalendarIcon, FilterX, Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
-// import { supabase } from '@/lib/supabaseClient'; // Supabase removido
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -21,6 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
+import { getStoredTransactions } from '@/lib/transactionStorage';
 
 const typeFilterOptions = [
   { value: 'all', label: 'Todas' },
@@ -29,17 +29,40 @@ const typeFilterOptions = [
 ];
 
 export default function ReportsPage() {
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]); // Manter para estrutura, mas será local ou vazia
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [displayedTransactions, setDisplayedTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false); // Não há mais carregamento do Supabase
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [selectedType, setSelectedType] = useState<TransactionType | 'all' | undefined>('all');
   
+  useEffect(() => {
+    function loadTransactions() {
+      setLoading(true);
+      const stored = getStoredTransactions();
+      setAllTransactions(stored.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setDisplayedTransactions(stored); // Initially display all
+      setLoading(false);
+    }
+    loadTransactions();
+
+     // Listener for storage changes to update transactions
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'financialApp_transactions') {
+        loadTransactions();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+
+  }, []); 
+
   const transactionListDescription = useMemo(() => {
-    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas (dados locais).';
+    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas localmente.';
     const dateParts: string[] = [];
     if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
     if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
@@ -53,66 +76,25 @@ export default function ReportsPage() {
 
     if (selectedType && selectedType !== 'all') {
       const typeLabel = typeFilterOptions.find(opt => opt.value === selectedType)?.label || selectedType;
-      if (!filtersApplied) descriptionText = 'Exibindo transações locais ';
-      descriptionText += `${filtersApplied ? '. ' : ''}Tipo: ${typeLabel}`;
+      descriptionText += `${filtersApplied ? '. ' : 'Exibindo transações locais '}Tipo: ${typeLabel}`;
       filtersApplied = true;
     }
     
     if (selectedCategory) {
       const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
-      if (!filtersApplied) descriptionText = 'Exibindo transações locais ';
-      descriptionText += `${filtersApplied ? '. ' : ''}Despesas filtradas por: ${categoryLabel}`;
+      descriptionText += `${filtersApplied ? '. ' : 'Exibindo transações locais '}Despesas por: ${categoryLabel}`;
       filtersApplied = true;
     }
     
-    if (filtersApplied) descriptionText += '.';
-    else descriptionText = "Nenhuma transação para exibir. Adicione algumas nas páginas de Receita/Despesa.";
+    if (allTransactions.length === 0) {
+        descriptionText = "Nenhuma transação registrada ainda. Adicione transações para vê-las aqui."
+    } else if (displayedTransactions.length === 0 && filtersApplied) {
+        descriptionText = "Nenhuma transação encontrada para os filtros aplicados."
+    }
 
 
     return descriptionText;
-  }, [startDate, endDate, selectedCategory, selectedType, displayedTransactions]); // Adicionado displayedTransactions
-
-  // useEffect(() => {
-  //   async function fetchAllTransactions() {
-  //     // Lógica de busca do Supabase removida
-  //     setLoading(false);
-  //   }
-  //   fetchAllTransactions();
-  // }, [toast]); 
-
-  useEffect(() => {
-    // Simula a busca de dados, mas como não há Supabase,
-    // allTransactions e displayedTransactions permanecerão vazios
-    // a menos que sejam populados por handleIncomeAdded/handleExpenseAdded (que agora são locais)
-    // Para fins de relatório, precisamos de uma forma de obter esses dados.
-    // Por simplicidade, os relatórios vão operar sobre 'displayedTransactions' que será filtrado
-    // a partir de 'allTransactions'. No entanto, 'allTransactions' não está sendo populado globalmente.
-    // Para o contexto desta remoção, os relatórios mostrarão dados vazios.
-    // Se a lógica de adicionar localmente nas páginas de Income/Expense fosse propagada para cá,
-    // seria necessário um estado global ou props.
-
-    // A solução mais simples agora é que os relatórios fiquem vazios.
-    setDisplayedTransactions(allTransactions.filter(t => { // Filtra a lista local, que pode ter sido populada em outras páginas
-        let pass = true;
-        if (startDate) {
-            const filterStart = startOfDay(startDate);
-            if (t.date < filterStart) pass = false;
-        }
-        if (endDate) {
-            const filterEnd = endOfDay(endDate);
-            if (t.date > filterEnd) pass = false;
-        }
-        if (selectedType && selectedType !== 'all') {
-            if (t.type !== selectedType) pass = false;
-        }
-        if (selectedCategory) {
-            if (t.type === 'expense' && t.category !== selectedCategory) pass = false;
-            if (t.type === 'income' && selectedType === 'expense') pass = false; // Hide income if filtering only expenses by category
-        }
-        return pass;
-    }));
-
-  }, [allTransactions, startDate, endDate, selectedCategory, selectedType]);
+  }, [startDate, endDate, selectedCategory, selectedType, displayedTransactions, allTransactions]);
 
 
   const summary = useMemo(() => {
@@ -128,16 +110,16 @@ export default function ReportsPage() {
   
 
   const applyFilters = () => {
-    let filtered = [...allTransactions]; // Começa com a lista local de transações (que pode estar vazia)
+    let filtered = [...allTransactions]; 
 
     if (startDate) {
       const filterStart = startOfDay(startDate);
-      filtered = filtered.filter(t => t.date >= filterStart);
+      filtered = filtered.filter(t => new Date(t.date) >= filterStart);
     }
 
     if (endDate) {
       const filterEnd = endOfDay(endDate);
-      filtered = filtered.filter(t => t.date <= filterEnd);
+      filtered = filtered.filter(t => new Date(t.date) <= filterEnd);
     }
     
     if (selectedType && selectedType !== 'all') {
@@ -145,12 +127,17 @@ export default function ReportsPage() {
     }
 
     if (selectedCategory) {
-      filtered = filtered.filter(t => {
-        if (t.type === 'expense') {
-          return t.category === selectedCategory;
-        }
-        return true; 
-      });
+      // If filtering by category, implicitly we are only interested in expenses for that category
+      // unless the type is also 'all' or 'expense'. If type is 'income', category filter shouldn't apply to income.
+      if (selectedType === 'all' || selectedType === 'expense') {
+        filtered = filtered.filter(t => {
+            if (t.type === 'expense') {
+                return t.category === selectedCategory;
+            }
+            // If type is 'all', keep incomes. If type is 'expense', incomes are already filtered out.
+            return selectedType === 'all' ? true : false; 
+        });
+      }
     }
     setDisplayedTransactions(filtered);
      if (filtered.length === 0 && allTransactions.length > 0) {
@@ -167,21 +154,21 @@ export default function ReportsPage() {
     setEndDate(undefined);
     setSelectedCategory(undefined);
     setSelectedType('all');
-    setDisplayedTransactions(allTransactions); // Mostra todas as transações locais (que podem estar vazias)
+    setDisplayedTransactions(allTransactions); 
   };
 
   const handleExportToExcel = () => {
     if (!displayedTransactions.length) {
       toast({
         title: 'Nenhuma transação',
-        description: 'Não há transações locais para exportar.',
+        description: 'Não há transações locais para exportar com os filtros atuais.',
         variant: 'default'
       });
       return;
     }
 
     const dataToExport = displayedTransactions.map(transaction => ({
-      'Data': format(transaction.date, 'dd/MM/yyyy', { locale: ptBR }),
+      'Data': format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR }),
       'Descrição': transaction.description,
       'Tipo': transaction.type === 'income' ? 'Receita' : 'Despesa',
       'Categoria/Fonte': transaction.type === 'expense'
@@ -211,7 +198,7 @@ export default function ReportsPage() {
     });
   };
 
-  if (loading) { // Este loading não deve mais ser ativado sem Supabase
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -228,14 +215,14 @@ export default function ReportsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Relatórios Financeiros (Dados Locais)</h1>
-        <p className="text-muted-foreground">Visualize seus dados financeiros. Os dados são baseados nas transações adicionadas localmente nesta sessão.</p>
+        <h1 className="text-3xl font-bold font-headline">Relatórios Financeiros</h1>
+        <p className="text-muted-foreground">Visualize seus dados financeiros salvos localmente no dispositivo.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita (Local)</CardTitle>
+            <CardTitle className="text-sm font-medium">Receita (Filtrado)</CardTitle>
             <TrendingUp className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
@@ -244,7 +231,7 @@ export default function ReportsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas (Local)</CardTitle>
+            <CardTitle className="text-sm font-medium">Despesas (Filtrado)</CardTitle>
             <TrendingDown className="h-5 w-5 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -253,8 +240,8 @@ export default function ReportsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo (Local)</CardTitle>
-            <Activity className="h-5 w-5 text-blue-500" />
+            <CardTitle className="text-sm font-medium">Saldo (Filtrado)</CardTitle>
+            <Activity className="h-5 w-5 text-accent" />
           </CardHeader>
           <CardContent>
              <div className={`text-2xl font-bold ${summary.balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
@@ -266,7 +253,7 @@ export default function ReportsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-lg">Filtrar Transações (Local)</CardTitle>
+          <CardTitle className="font-headline text-lg">Filtrar Transações</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -356,6 +343,7 @@ export default function ReportsPage() {
                             "w-full justify-between",
                             !selectedCategory && "text-muted-foreground"
                             )}
+                            disabled={selectedType === 'income'} // Disable if only income is selected
                         >
                             {selectedCategory
                             ? EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label
@@ -431,7 +419,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="font-headline text-xl">Transações Locais</CardTitle>
+            <CardTitle className="font-headline text-xl">Transações</CardTitle>
             <CardDescription>
               {transactionListDescription}
             </CardDescription>
@@ -457,7 +445,7 @@ export default function ReportsPage() {
                 <TableBody>
                   {displayedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell>{format(transaction.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="font-medium">{transaction.description}</TableCell>
                       <TableCell>
                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -483,7 +471,7 @@ export default function ReportsPage() {
           ) : (
              <div className="text-center py-10">
                <Image src="https://placehold.co/300x200.png" alt="Nenhuma transação encontrada" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="documento pesquisa vazia"/>
-              <p className="text-muted-foreground">Nenhuma transação local encontrada para os filtros selecionados ou nenhuma transação adicionada.</p>
+              <p className="text-muted-foreground">{transactionListDescription}</p>
             </div>
           )}
         </CardContent>

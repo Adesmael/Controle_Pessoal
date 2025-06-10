@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import IncomeForm from '@/components/forms/IncomeForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { Transaction, TransactionType } from '@/types';
+import type { Transaction } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
-import { Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,37 +23,38 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-// import { supabase } from '@/lib/supabaseClient'; // Supabase removido
+import { getStoredTransactions, addStoredTransaction, deleteStoredTransaction } from '@/lib/transactionStorage';
 
 export default function IncomePage() {
-  const [incomes, setIncomes] = useState<Transaction[]>([]); // Manter para estrutura, mas será local ou vazia
-  const [loading, setLoading] = useState(false); // Não há mais carregamento do Supabase
+  const [incomes, setIncomes] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
-  // useEffect(() => {
-  //   fetchIncomes(); // Removido - não há Supabase para buscar
-  // }, []);
-
-  // async function fetchIncomes() {
-  //   // Lógica de busca do Supabase removida
-  //   setLoading(false);
-  // }
+  useEffect(() => {
+    const loadIncomes = () => {
+      const allTransactions = getStoredTransactions();
+      setIncomes(allTransactions.filter(tx => tx.type === 'income').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setLoading(false);
+    };
+    loadIncomes();
+  }, []);
 
   const handleIncomeAdded = (newIncomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
-    // Lógica de inserção do Supabase removida
-    // Poderia adicionar a uma lista local 'incomes' aqui se desejado para a sessão atual
-    const newIncome: Transaction = {
-      ...newIncomeData,
-      id: crypto.randomUUID(),
-      type: 'income',
-      created_at: new Date().toISOString(),
-    };
-    setIncomes((prevIncomes) => [newIncome, ...prevIncomes].sort((a, b) => b.date.getTime() - a.date.getTime()));
-    toast({
-      title: "Receita Adicionada (Localmente)!",
-      description: `A receita "${newIncomeData.description}" foi adicionada à lista local. Os dados não serão salvos permanentemente.`,
-    });
+    const newIncome = addStoredTransaction(newIncomeData, 'income');
+    if (newIncome) {
+      setIncomes((prevIncomes) => [newIncome, ...prevIncomes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      toast({
+        title: "Receita Adicionada!",
+        description: `A receita "${newIncome.description}" foi salva localmente.`,
+      });
+    } else {
+      toast({
+        title: "Erro ao Adicionar Receita",
+        description: "Não foi possível salvar a receita localmente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openDeleteDialog = (transaction: Transaction) => {
@@ -61,17 +62,25 @@ export default function IncomePage() {
   };
 
   const handleDeleteConfirm = async () => {
-    // Lógica de exclusão do Supabase removida
     if (!transactionToDelete) return;
-    setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
-    toast({
-      title: "Receita Excluída (Localmente)!",
-      description: `A receita "${transactionToDelete.description}" foi removida da lista local.`,
-    });
-    setTransactionToDelete(null); 
+    const success = deleteStoredTransaction(transactionToDelete.id);
+    if (success) {
+      setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
+      toast({
+        title: "Receita Excluída!",
+        description: `A receita "${transactionToDelete.description}" foi removida do armazenamento local.`,
+      });
+    } else {
+      toast({
+        title: "Erro ao Excluir",
+        description: "Não foi possível excluir a receita do armazenamento local.",
+        variant: "destructive",
+      });
+    }
+    setTransactionToDelete(null);
   };
   
-  if (loading) { // Este loading não deve mais ser ativado sem Supabase
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -84,7 +93,7 @@ export default function IncomePage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Registrar Receita</h1>
-        <p className="text-muted-foreground">Registre todas as suas fontes de receita aqui. Os dados serão mantidos localmente nesta sessão.</p>
+        <p className="text-muted-foreground">Registre todas as suas fontes de receita aqui. Os dados serão salvos localmente no seu dispositivo.</p>
       </div>
 
       <Card className="shadow-lg">
@@ -98,7 +107,7 @@ export default function IncomePage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Receitas Recentes (Local)</CardTitle>
+          <CardTitle className="font-headline text-xl">Receitas Recentes</CardTitle>
           <CardDescription>Exibindo suas últimas receitas registradas localmente.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -121,7 +130,7 @@ export default function IncomePage() {
                       <TableCell className="text-primary"> 
                         {CURRENCY_SYMBOL}{Number(income.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell>{format(income.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>{income.source || '-'}</TableCell>
                       <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(income)}>
@@ -145,9 +154,9 @@ export default function IncomePage() {
       <AlertDialog open={!!transactionToDelete} onOpenChange={(isOpen) => { if(!isOpen) setTransactionToDelete(null)}}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão (Local)</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} da lista local?
+              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} do armazenamento local?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
