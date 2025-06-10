@@ -23,83 +23,37 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from '@/lib/supabaseClient';
+// import { supabase } from '@/lib/supabaseClient'; // Supabase removido
 
 export default function IncomePage() {
-  const [incomes, setIncomes] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [incomes, setIncomes] = useState<Transaction[]>([]); // Manter para estrutura, mas será local ou vazia
+  const [loading, setLoading] = useState(false); // Não há mais carregamento do Supabase
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    fetchIncomes();
-  }, []);
+  // useEffect(() => {
+  //   fetchIncomes(); // Removido - não há Supabase para buscar
+  // }, []);
 
-  async function fetchIncomes() {
-    if (!supabase) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('type', 'income')
-      .order('date', { ascending: false });
+  // async function fetchIncomes() {
+  //   // Lógica de busca do Supabase removida
+  //   setLoading(false);
+  // }
 
-    if (error) {
-      console.error('Erro ao buscar receitas:', error);
-      toast({ 
-        title: 'Erro ao buscar receitas!', 
-        description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados.', 
-        variant: 'destructive' 
-      });
-      setIncomes([]);
-    } else if (data) {
-      setIncomes(data.map(t => {
-        const [year, month, day] = (t.date as string).split('-').map(Number);
-        return {...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
-      }));
-    }
-    setLoading(false);
-  }
-
-  const handleIncomeAdded = async (newIncomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
-    if (!supabase) return;
-    setLoading(true);
-    const incomeToInsert = {
-      id: crypto.randomUUID(), 
-      type: 'income' as 'income',
-      description: newIncomeData.description,
-      amount: newIncomeData.amount,
-      date: format(newIncomeData.date, 'yyyy-MM-dd'),
-      source: newIncomeData.source,
+  const handleIncomeAdded = (newIncomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
+    // Lógica de inserção do Supabase removida
+    // Poderia adicionar a uma lista local 'incomes' aqui se desejado para a sessão atual
+    const newIncome: Transaction = {
+      ...newIncomeData,
+      id: crypto.randomUUID(),
+      type: 'income',
+      created_at: new Date().toISOString(),
     };
-
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([incomeToInsert])
-      .select()
-      .single();
-
-    setLoading(false);
-    if (error) {
-      console.error('Erro ao adicionar receita:', error);
-      toast({ 
-        title: 'Erro ao adicionar receita!', 
-        description: error.message || 'Não foi possível salvar a receita no banco de dados.', 
-        variant: 'destructive' 
-      });
-    } else if (data) {
-      const [year, month, day] = (data.date as string).split('-').map(Number);
-      const newIncome = { ...data, id: data.id as string, date: new Date(year, month - 1, day), type: data.type as TransactionType };
-      setIncomes((prevIncomes) => [newIncome, ...prevIncomes]);
-      toast({
-        title: "Receita Adicionada!",
-        description: `A receita "${data.description}" foi adicionada com sucesso.`,
-      });
-    }
+    setIncomes((prevIncomes) => [newIncome, ...prevIncomes].sort((a, b) => b.date.getTime() - a.date.getTime()));
+    toast({
+      title: "Receita Adicionada (Localmente)!",
+      description: `A receita "${newIncomeData.description}" foi adicionada à lista local. Os dados não serão salvos permanentemente.`,
+    });
   };
 
   const openDeleteDialog = (transaction: Transaction) => {
@@ -107,49 +61,17 @@ export default function IncomePage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!supabase || !transactionToDelete) return;
-    setLoading(true);
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', transactionToDelete.id);
-
-    setLoading(false);
-    if (error) {
-      console.error('Erro ao excluir receita:', error);
-      toast({ 
-        title: 'Erro ao excluir receita!', 
-        description: error.message || 'Não foi possível remover a receita do banco de dados.', 
-        variant: 'destructive' 
-      });
-    } else {
-      setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
-      toast({
-        title: "Receita Excluída!",
-        description: `A receita "${transactionToDelete.description}" foi excluída com sucesso.`,
-      });
-    }
+    // Lógica de exclusão do Supabase removida
+    if (!transactionToDelete) return;
+    setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
+    toast({
+      title: "Receita Excluída (Localmente)!",
+      description: `A receita "${transactionToDelete.description}" foi removida da lista local.`,
+    });
     setTransactionToDelete(null); 
   };
   
-  if (!supabase) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen text-center p-4 bg-background text-foreground">
-        <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
-        <h1 className="text-2xl font-bold mb-4 text-destructive">Supabase Não Configurado</h1>
-        <p className="mb-2">As variáveis de ambiente do Supabase (URL e Chave Anônima) não foram encontradas.</p>
-        <p className="mb-2">Por favor, crie um arquivo <code>.env.local</code> na raiz do projeto com o seguinte conteúdo:</p>
-        <pre className="bg-muted p-3 rounded-md text-sm my-3 text-left shadow">
-          {`NEXT_PUBLIC_SUPABASE_URL=SUA_URL_AQUI\nNEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_AQUI`}
-        </pre>
-        <p className="text-sm text-muted-foreground mb-1">Substitua <code>SUA_URL_AQUI</code> e <code>SUA_CHAVE_AQUI</code> com suas credenciais do Supabase.</p>
-        <p className="mb-4">Após criar ou modificar o arquivo, <strong className="text-primary">reinicie o servidor de desenvolvimento</strong>.</p>
-        <p className="text-muted-foreground mt-4">A página de Receitas estará indisponível até que o Supabase seja configurado.</p>
-      </div>
-    );
-  }
-
-  if (loading) {
+  if (loading) { // Este loading não deve mais ser ativado sem Supabase
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -162,7 +84,7 @@ export default function IncomePage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Registrar Receita</h1>
-        <p className="text-muted-foreground">Registre todas as suas fontes de receita aqui.</p>
+        <p className="text-muted-foreground">Registre todas as suas fontes de receita aqui. Os dados serão mantidos localmente nesta sessão.</p>
       </div>
 
       <Card className="shadow-lg">
@@ -176,8 +98,8 @@ export default function IncomePage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Receitas Recentes</CardTitle>
-          <CardDescription>Exibindo suas últimas receitas registradas.</CardDescription>
+          <CardTitle className="font-headline text-xl">Receitas Recentes (Local)</CardTitle>
+          <CardDescription>Exibindo suas últimas receitas registradas localmente.</CardDescription>
         </CardHeader>
         <CardContent>
           {incomes.length > 0 ? (
@@ -196,7 +118,7 @@ export default function IncomePage() {
                   {incomes.map((income) => ( 
                     <TableRow key={income.id}>
                       <TableCell className="font-medium">{income.description}</TableCell>
-                      <TableCell> 
+                      <TableCell className="text-primary"> 
                         {CURRENCY_SYMBOL}{Number(income.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(income.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
@@ -223,9 +145,9 @@ export default function IncomePage() {
       <AlertDialog open={!!transactionToDelete} onOpenChange={(isOpen) => { if(!isOpen) setTransactionToDelete(null)}}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão (Local)</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} da lista local?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

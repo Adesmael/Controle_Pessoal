@@ -23,83 +23,37 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from '@/lib/supabaseClient';
+// import { supabase } from '@/lib/supabaseClient'; // Supabase removido
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [expenses, setExpenses] = useState<Transaction[]>([]); // Manter para estrutura, mas será local ou vazia
+  const [loading, setLoading] = useState(false); // Não há mais carregamento do Supabase
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    fetchExpenses();
-  }, []);
+  // useEffect(() => {
+  //   fetchExpenses(); // Removido - não há Supabase para buscar
+  // }, []);
   
-  async function fetchExpenses() {
-    if (!supabase) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('type', 'expense')
-      .order('date', { ascending: false });
-
-    if (error) {
-      console.error('Erro ao buscar despesas:', error);
-      toast({ 
-        title: 'Erro ao buscar despesas!', 
-        description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados.', 
-        variant: 'destructive' 
-      });
-      setExpenses([]);
-    } else if (data) {
-      setExpenses(data.map(t => {
-        const [year, month, day] = (t.date as string).split('-').map(Number);
-        return {...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
-      }));
-    }
-    setLoading(false);
-  }
+  // async function fetchExpenses() {
+  //   // Lógica de busca do Supabase removida
+  //   setLoading(false);
+  // }
   
-  const handleExpenseAdded = async (newExpenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
-    if (!supabase) return;
-    setLoading(true);
-    const expenseToInsert = {
-      id: crypto.randomUUID(), 
-      type: 'expense' as 'expense',
-      description: newExpenseData.description,
-      amount: newExpenseData.amount,
-      date: format(newExpenseData.date, 'yyyy-MM-dd'), 
-      category: newExpenseData.category,
+  const handleExpenseAdded = (newExpenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
+    // Lógica de inserção do Supabase removida
+    // Poderia adicionar a uma lista local 'expenses' aqui se desejado para a sessão atual
+    const newExpense: Transaction = {
+        ...newExpenseData,
+        id: crypto.randomUUID(),
+        type: 'expense',
+        created_at: new Date().toISOString(),
     };
-
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([expenseToInsert])
-      .select()
-      .single(); 
-
-    setLoading(false);
-    if (error) {
-      console.error('Erro ao adicionar despesa:', error);
-      toast({ 
-        title: 'Erro ao adicionar despesa!', 
-        description: error.message || 'Não foi possível salvar a despesa no banco de dados.', 
-        variant: 'destructive' 
-      });
-    } else if (data) {
-      const [year, month, day] = (data.date as string).split('-').map(Number);
-      const newExpense = { ...data, id: data.id as string, date: new Date(year, month - 1, day), type: data.type as TransactionType };
-      setExpenses((prevExpenses) => [newExpense, ...prevExpenses]);
-      toast({
-        title: "Despesa Adicionada!",
-        description: `A despesa "${data.description}" foi adicionada com sucesso.`,
-      });
-    }
+    setExpenses((prevExpenses) => [newExpense, ...prevExpenses].sort((a,b) => b.date.getTime() - a.date.getTime()));
+    toast({
+      title: "Despesa Adicionada (Localmente)!",
+      description: `A despesa "${newExpenseData.description}" foi adicionada à lista local. Os dados não serão salvos permanentemente.`,
+    });
   };
 
   const openDeleteDialog = (transaction: Transaction) => {
@@ -107,49 +61,17 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!supabase || !transactionToDelete) return;
-    setLoading(true);
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', transactionToDelete.id);
-    
-    setLoading(false);
-    if (error) {
-      console.error('Erro ao excluir despesa:', error);
-      toast({ 
-        title: 'Erro ao excluir despesa!', 
-        description: error.message || 'Não foi possível remover a despesa do banco de dados.', 
-        variant: 'destructive' 
-      });
-    } else {
-      setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
-      toast({
-        title: "Despesa Excluída!",
-        description: `A despesa "${transactionToDelete.description}" foi excluída com sucesso.`,
-      });
-    }
+    // Lógica de exclusão do Supabase removida
+    if (!transactionToDelete) return;
+    setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
+    toast({
+      title: "Despesa Excluída (Localmente)!",
+      description: `A despesa "${transactionToDelete.description}" foi excluída da lista local.`,
+    });
     setTransactionToDelete(null);
   };
 
-  if (!supabase) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen text-center p-4 bg-background text-foreground">
-        <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
-        <h1 className="text-2xl font-bold mb-4 text-destructive">Supabase Não Configurado</h1>
-        <p className="mb-2">As variáveis de ambiente do Supabase (URL e Chave Anônima) não foram encontradas.</p>
-        <p className="mb-2">Por favor, crie um arquivo <code>.env.local</code> na raiz do projeto com o seguinte conteúdo:</p>
-        <pre className="bg-muted p-3 rounded-md text-sm my-3 text-left shadow">
-          {`NEXT_PUBLIC_SUPABASE_URL=SUA_URL_AQUI\nNEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_AQUI`}
-        </pre>
-        <p className="text-sm text-muted-foreground mb-1">Substitua <code>SUA_URL_AQUI</code> e <code>SUA_CHAVE_AQUI</code> com suas credenciais do Supabase.</p>
-        <p className="mb-4">Após criar ou modificar o arquivo, <strong className="text-primary">reinicie o servidor de desenvolvimento</strong>.</p>
-        <p className="text-muted-foreground mt-4">A página de Despesas estará indisponível até que o Supabase seja configurado.</p>
-      </div>
-    );
-  }
-
-  if (loading) {
+  if (loading) { // Este loading não deve mais ser ativado sem Supabase
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -168,7 +90,7 @@ export default function ExpensesPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Registrar Despesas</h1>
-        <p className="text-muted-foreground">Acompanhe para onde seu dinheiro está indo.</p>
+        <p className="text-muted-foreground">Acompanhe para onde seu dinheiro está indo. Os dados serão mantidos localmente nesta sessão.</p>
       </div>
 
       <Card className="shadow-lg">
@@ -182,8 +104,8 @@ export default function ExpensesPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Despesas Recentes</CardTitle>
-          <CardDescription>Exibindo suas últimas despesas registradas.</CardDescription>
+          <CardTitle className="font-headline text-xl">Despesas Recentes (Local)</CardTitle>
+          <CardDescription>Exibindo suas últimas despesas registradas localmente.</CardDescription>
         </CardHeader>
         <CardContent>
           {expenses.length > 0 ? (
@@ -206,7 +128,7 @@ export default function ExpensesPage() {
                         {getCategoryIcon(expense.category)}
                         {EXPENSE_CATEGORIES.find(cat => cat.value === expense.category)?.label || expense.category || '-'}
                       </TableCell>
-                      <TableCell> 
+                      <TableCell className="text-destructive"> 
                         {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(expense.date, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
@@ -232,9 +154,9 @@ export default function ExpensesPage() {
       <AlertDialog open={!!transactionToDelete} onOpenChange={(isOpen) => { if(!isOpen) setTransactionToDelete(null)}}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão (Local)</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a despesa "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a despesa "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} da lista local?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

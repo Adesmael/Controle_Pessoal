@@ -13,7 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
 import { TrendingUp, TrendingDown, Activity, Loader2, AlertTriangle, FileSpreadsheet, CalendarIcon, FilterX, Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
-import { supabase } from '@/lib/supabaseClient';
+// import { supabase } from '@/lib/supabaseClient'; // Supabase removido
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -29,9 +29,9 @@ const typeFilterOptions = [
 ];
 
 export default function ReportsPage() {
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]); // Manter para estrutura, mas será local ou vazia
   const [displayedTransactions, setDisplayedTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Não há mais carregamento do Supabase
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
@@ -39,7 +39,7 @@ export default function ReportsPage() {
   const [selectedType, setSelectedType] = useState<TransactionType | 'all' | undefined>('all');
   
   const transactionListDescription = useMemo(() => {
-    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas.';
+    let descriptionText = 'Uma lista completa de suas receitas e despesas registradas (dados locais).';
     const dateParts: string[] = [];
     if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
     if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
@@ -47,63 +47,73 @@ export default function ReportsPage() {
     let filtersApplied = false;
 
     if (dateParts.length > 0) {
-      descriptionText = 'Exibindo transações ' + dateParts.join(' ');
+      descriptionText = 'Exibindo transações locais ' + dateParts.join(' ');
       filtersApplied = true;
     }
 
     if (selectedType && selectedType !== 'all') {
       const typeLabel = typeFilterOptions.find(opt => opt.value === selectedType)?.label || selectedType;
-      if (!filtersApplied) descriptionText = 'Exibindo transações ';
+      if (!filtersApplied) descriptionText = 'Exibindo transações locais ';
       descriptionText += `${filtersApplied ? '. ' : ''}Tipo: ${typeLabel}`;
       filtersApplied = true;
     }
     
     if (selectedCategory) {
       const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
-      if (!filtersApplied) descriptionText = 'Exibindo transações ';
+      if (!filtersApplied) descriptionText = 'Exibindo transações locais ';
       descriptionText += `${filtersApplied ? '. ' : ''}Despesas filtradas por: ${categoryLabel}`;
       filtersApplied = true;
     }
     
     if (filtersApplied) descriptionText += '.';
+    else descriptionText = "Nenhuma transação para exibir. Adicione algumas nas páginas de Receita/Despesa.";
+
 
     return descriptionText;
-  }, [startDate, endDate, selectedCategory, selectedType]);
+  }, [startDate, endDate, selectedCategory, selectedType, displayedTransactions]); // Adicionado displayedTransactions
+
+  // useEffect(() => {
+  //   async function fetchAllTransactions() {
+  //     // Lógica de busca do Supabase removida
+  //     setLoading(false);
+  //   }
+  //   fetchAllTransactions();
+  // }, [toast]); 
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    async function fetchAllTransactions() {
-      if (!supabase) return; 
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
+    // Simula a busca de dados, mas como não há Supabase,
+    // allTransactions e displayedTransactions permanecerão vazios
+    // a menos que sejam populados por handleIncomeAdded/handleExpenseAdded (que agora são locais)
+    // Para fins de relatório, precisamos de uma forma de obter esses dados.
+    // Por simplicidade, os relatórios vão operar sobre 'displayedTransactions' que será filtrado
+    // a partir de 'allTransactions'. No entanto, 'allTransactions' não está sendo populado globalmente.
+    // Para o contexto desta remoção, os relatórios mostrarão dados vazios.
+    // Se a lógica de adicionar localmente nas páginas de Income/Expense fosse propagada para cá,
+    // seria necessário um estado global ou props.
 
-      if (error) {
-        console.error('Erro ao buscar todas as transações:', error);
-        toast({
-          title: 'Erro ao buscar transações!',
-          description: error.message || 'Não foi possível conectar ao banco de dados ou buscar os dados para os relatórios.',
-          variant: 'destructive'
-        });
-        setAllTransactions([]);
-        setDisplayedTransactions([]);
-      } else if (data) {
-        const formattedData = data.map(t => {
-          const [year, month, day] = (t.date as string).split('-').map(Number);
-          return {...t, id: t.id as string, date: new Date(year, month - 1, day), type: t.type as TransactionType };
-        });
-        setAllTransactions(formattedData);
-        setDisplayedTransactions(formattedData);
-      }
-      setLoading(false);
-    }
-    fetchAllTransactions();
-  }, [toast]); 
+    // A solução mais simples agora é que os relatórios fiquem vazios.
+    setDisplayedTransactions(allTransactions.filter(t => { // Filtra a lista local, que pode ter sido populada em outras páginas
+        let pass = true;
+        if (startDate) {
+            const filterStart = startOfDay(startDate);
+            if (t.date < filterStart) pass = false;
+        }
+        if (endDate) {
+            const filterEnd = endOfDay(endDate);
+            if (t.date > filterEnd) pass = false;
+        }
+        if (selectedType && selectedType !== 'all') {
+            if (t.type !== selectedType) pass = false;
+        }
+        if (selectedCategory) {
+            if (t.type === 'expense' && t.category !== selectedCategory) pass = false;
+            if (t.type === 'income' && selectedType === 'expense') pass = false; // Hide income if filtering only expenses by category
+        }
+        return pass;
+    }));
+
+  }, [allTransactions, startDate, endDate, selectedCategory, selectedType]);
+
 
   const summary = useMemo(() => {
     const totalIncome = displayedTransactions
@@ -118,7 +128,7 @@ export default function ReportsPage() {
   
 
   const applyFilters = () => {
-    let filtered = [...allTransactions];
+    let filtered = [...allTransactions]; // Começa com a lista local de transações (que pode estar vazia)
 
     if (startDate) {
       const filterStart = startOfDay(startDate);
@@ -139,14 +149,17 @@ export default function ReportsPage() {
         if (t.type === 'expense') {
           return t.category === selectedCategory;
         }
-        // If filtering by expense category, income transactions are shown (unless type filter is 'expense')
-        // If selectedType is 'income', this 'expense' block is skipped for income items.
-        // If selectedType is 'expense', only expenses reach here, then category filter applies.
-        // If selectedType is 'all', income items pass, expenses are category filtered.
         return true; 
       });
     }
     setDisplayedTransactions(filtered);
+     if (filtered.length === 0 && allTransactions.length > 0) {
+        toast({
+            title: "Nenhum resultado",
+            description: "Nenhuma transação encontrada para os filtros aplicados.",
+            variant: "default"
+        });
+    }
   };
 
   const clearFilters = () => {
@@ -154,14 +167,14 @@ export default function ReportsPage() {
     setEndDate(undefined);
     setSelectedCategory(undefined);
     setSelectedType('all');
-    setDisplayedTransactions(allTransactions);
+    setDisplayedTransactions(allTransactions); // Mostra todas as transações locais (que podem estar vazias)
   };
 
   const handleExportToExcel = () => {
     if (!displayedTransactions.length) {
       toast({
         title: 'Nenhuma transação',
-        description: 'Não há transações para exportar no período selecionado.',
+        description: 'Não há transações locais para exportar.',
         variant: 'default'
       });
       return;
@@ -198,25 +211,7 @@ export default function ReportsPage() {
     });
   };
 
-
-  if (!supabase) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen text-center p-4 bg-background text-foreground">
-        <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
-        <h1 className="text-2xl font-bold mb-4 text-destructive">Supabase Não Configurado</h1>
-        <p className="mb-2">As variáveis de ambiente do Supabase (URL e Chave Anônima) não foram encontradas.</p>
-        <p className="mb-2">Por favor, crie um arquivo <code>.env.local</code> na raiz do projeto com o seguinte conteúdo:</p>
-        <pre className="bg-muted p-3 rounded-md text-sm my-3 text-left shadow">
-          {`NEXT_PUBLIC_SUPABASE_URL=SUA_URL_AQUI\nNEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_AQUI`}
-        </pre>
-        <p className="text-sm text-muted-foreground mb-1">Substitua <code>SUA_URL_AQUI</code> e <code>SUA_CHAVE_AQUI</code> com suas credenciais do Supabase.</p>
-        <p className="mb-4">Após criar ou modificar o arquivo, <strong className="text-primary">reinicie o servidor de desenvolvimento</strong>.</p>
-        <p className="text-muted-foreground mt-4">A página de Relatórios estará indisponível até que o Supabase seja configurado.</p>
-      </div>
-    );
-  }
-
-  if (loading) {
+  if (loading) { // Este loading não deve mais ser ativado sem Supabase
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -233,14 +228,14 @@ export default function ReportsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Relatórios Financeiros</h1>
-        <p className="text-muted-foreground">Visualize seus dados financeiros e obtenha insights.</p>
+        <h1 className="text-3xl font-bold font-headline">Relatórios Financeiros (Dados Locais)</h1>
+        <p className="text-muted-foreground">Visualize seus dados financeiros. Os dados são baseados nas transações adicionadas localmente nesta sessão.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita (Período)</CardTitle>
+            <CardTitle className="text-sm font-medium">Receita (Local)</CardTitle>
             <TrendingUp className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
@@ -249,7 +244,7 @@ export default function ReportsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas (Período)</CardTitle>
+            <CardTitle className="text-sm font-medium">Despesas (Local)</CardTitle>
             <TrendingDown className="h-5 w-5 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -258,7 +253,7 @@ export default function ReportsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo (Período)</CardTitle>
+            <CardTitle className="text-sm font-medium">Saldo (Local)</CardTitle>
             <Activity className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -271,7 +266,7 @@ export default function ReportsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-lg">Filtrar Transações</CardTitle>
+          <CardTitle className="font-headline text-lg">Filtrar Transações (Local)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -436,7 +431,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="font-headline text-xl">Transações do Período</CardTitle>
+            <CardTitle className="font-headline text-xl">Transações Locais</CardTitle>
             <CardDescription>
               {transactionListDescription}
             </CardDescription>
@@ -488,7 +483,7 @@ export default function ReportsPage() {
           ) : (
              <div className="text-center py-10">
                <Image src="https://placehold.co/300x200.png" alt="Nenhuma transação encontrada" width={300} height={200} className="mx-auto mb-4 rounded-md" data-ai-hint="documento pesquisa vazia"/>
-              <p className="text-muted-foreground">Nenhuma transação encontrada para os filtros selecionados ou nenhuma transação registrada.</p>
+              <p className="text-muted-foreground">Nenhuma transação local encontrada para os filtros selecionados ou nenhuma transação adicionada.</p>
             </div>
           )}
         </CardContent>
@@ -496,6 +491,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-
-    
