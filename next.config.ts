@@ -5,10 +5,10 @@ const nextConfig: NextConfig = {
   /* config options here */
   output: 'export', // Adicionado para exportação estática
   typescript: {
-    ignoreBuildErrors: true,
+    // ignoreBuildErrors: true, // Removido para mostrar erros de TypeScript
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    // ignoreDuringBuilds: true, // Removido para mostrar erros de ESLint
   },
   images: {
     unoptimized: true, // Necessário para 'next export' se estiver usando next/image
