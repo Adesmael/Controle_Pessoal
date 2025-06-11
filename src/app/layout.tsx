@@ -7,8 +7,8 @@ import {
   TrendingDown,
   BarChart3,
   Settings,
-  PanelLeftOpen,
-  PanelLeftClose,
+  // PanelLeftOpen, // Removido
+  // PanelLeftClose, // Removido
 } from 'lucide-react';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -23,7 +23,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
-  useSidebar,
+  // useSidebar, // Removido se ToggleIcon for removido
 } from '@/components/ui/sidebar';
 import Logo from '@/components/Logo';
 import MobileNavigation from '@/components/layout/MobileNavigation'; 
@@ -33,10 +33,11 @@ export const metadata: Metadata = {
   description: 'Controle suas receitas e despesas de forma eficaz.',
 };
 
-function ToggleIcon() {
-  const { open } = useSidebar();
-  return open ? <PanelLeftClose /> : <PanelLeftOpen />;
-}
+// Removida a função ToggleIcon pois a lógica agora está no SidebarTrigger
+// function ToggleIcon() {
+//   const { open } = useSidebar();
+//   return open ? <PanelLeftClose /> : <PanelLeftOpen />;
+// }
 
 export default function RootLayout({
   children,
@@ -111,7 +112,7 @@ export default function RootLayout({
           <SidebarInset>
             <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6 md:hidden">
               <SidebarTrigger className="md:hidden"> 
-                 <ToggleIcon />
+                 {/* O ícone agora é renderizado internamente pelo SidebarTrigger */}
               </SidebarTrigger>
               <div className="flex-1">
                 <h1 className="font-headline text-lg font-semibold">Fluxo Financeiro</h1>

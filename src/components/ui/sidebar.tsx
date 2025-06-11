@@ -4,7 +4,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft } from "lucide-react"
+import { PanelLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react" // Adicionado PanelLeftClose e PanelLeftOpen
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -20,7 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_STORAGE_KEY = "sidebar_state_v2" // Alterado de COOKIE_NAME e versionado
+const SIDEBAR_STORAGE_KEY = "sidebar_state_v2" 
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -69,16 +69,15 @@ const SidebarProvider = React.forwardRef<
   ) => {
     const isMobile = useIsMobile()
     const [openMobile, setOpenMobile] = React.useState(false)
-    const [_open, _setOpen] = React.useState(defaultOpen) // Mantém estado interno inicial
+    const [_open, _setOpen] = React.useState(defaultOpen) 
 
-    // Efeito para carregar o estado da sidebar do localStorage no cliente
     React.useEffect(() => {
-      if (typeof window !== "undefined" && openProp === undefined) { // Só executa no cliente e se não for controlado externamente
+      if (typeof window !== "undefined" && openProp === undefined) { 
         const storedState = localStorage.getItem(SIDEBAR_STORAGE_KEY)
         if (storedState !== null) {
           _setOpen(storedState === "true")
         } else {
-          _setOpen(defaultOpen) // Usa defaultOpen se nada estiver no localStorage
+          _setOpen(defaultOpen) 
         }
       }
     }, [defaultOpen, openProp])
@@ -183,7 +182,7 @@ const Sidebar = React.forwardRef<
     },
     ref
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile, open } = useSidebar() // Adicionado 'open'
+    const { isMobile, state, openMobile, setOpenMobile, open } = useSidebar() 
 
     if (collapsible === "none") {
       return (
@@ -220,14 +219,13 @@ const Sidebar = React.forwardRef<
       )
     }
 
-    // Usar 'state' que é derivado de 'open' para o desktop
     const desktopState = open ? "expanded" : "collapsed";
 
     return (
       <div
         ref={ref}
         className="group peer hidden md:block text-sidebar-foreground"
-        data-state={desktopState} // Usar desktopState
+        data-state={desktopState} 
         data-collapsible={desktopState === "collapsed" ? collapsible : ""}
         data-variant={variant}
         data-side={side}
@@ -271,8 +269,9 @@ Sidebar.displayName = "Sidebar"
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar } = useSidebar()
+>(({ className, onClick, children, ...props }, ref) => {
+  const { toggleSidebar, open, isMobile, openMobile } = useSidebar();
+  const currentOpenState = isMobile ? openMobile : open;
 
   return (
     <Button
@@ -282,16 +281,16 @@ const SidebarTrigger = React.forwardRef<
       size="icon"
       className={cn("h-7 w-7", className)}
       onClick={(event) => {
-        onClick?.(event)
-        toggleSidebar()
+        onClick?.(event);
+        toggleSidebar();
       }}
       {...props}
     >
-      <PanelLeft />
+      {children ? children : (currentOpenState ? <PanelLeftClose /> : <PanelLeftOpen />)}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
-  )
-})
+  );
+});
 SidebarTrigger.displayName = "SidebarTrigger"
 
 const SidebarRail = React.forwardRef<
