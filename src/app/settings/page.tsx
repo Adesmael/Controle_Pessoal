@@ -86,7 +86,7 @@ export default function SettingsPage() {
       }
 
       const backupData = {
-        transactions: transactions.map(tx => ({...tx, date: tx.date.toISOString()})), // Garante que as datas sejam strings ISO
+        transactions: transactions.map(tx => ({...tx, date: tx.date.toISOString()})), 
         monthlyGoal: monthlyGoalValue,
       };
 
@@ -132,12 +132,11 @@ export default function SettingsPage() {
           if (
             parsedData &&
             typeof parsedData === 'object' &&
-            (Array.isArray(parsedData.transactions) || parsedData.transactions === undefined) && // transações podem ser array vazio ou não existir
-            ('monthlyGoal' in parsedData || parsedData.monthlyGoal === undefined) // meta pode ser null, número ou não existir
+            (Array.isArray(parsedData.transactions) || parsedData.transactions === undefined) &&
+            ('monthlyGoal' in parsedData || parsedData.monthlyGoal === undefined)
           ) {
-            // Validação mais profunda das transações
-            const transactions = parsedData.transactions || [];
-            if (transactions.some((tx: any) => typeof tx.date !== 'string' || isNaN(new Date(tx.date).getTime()))) {
+            const transactionsFromFile = parsedData.transactions || [];
+            if (transactionsFromFile.some((tx: any) => typeof tx.date !== 'string' || isNaN(new Date(tx.date).getTime()))) {
                toast({ title: "Arquivo Inválido", description: "O arquivo de backup contém transações com datas em formato inválido.", variant: "destructive" });
                return;
             }
@@ -146,17 +145,14 @@ export default function SettingsPage() {
               return;
             }
 
-
             setBackupToImport({
-                transactions: transactions.map((tx: any) => ({
+                transactions: transactionsFromFile.map((tx: any) => ({
                     ...tx,
-                    // Garante que campos essenciais existam e tenham tipos básicos corretos,
-                    // a conversão final para o tipo Transaction ocorre em handleImportConfirm
                     id: String(tx.id || crypto.randomUUID()),
                     type: String(tx.type || 'expense'),
                     description: String(tx.description || ''),
                     amount: Number(tx.amount || 0),
-                    date: tx.date, // Mantém como string ISO por enquanto
+                    date: tx.date, 
                     created_at: String(tx.created_at || new Date().toISOString()),
                 })),
                 monthlyGoal: parsedData.monthlyGoal !== undefined ? parsedData.monthlyGoal : null,
@@ -171,45 +167,48 @@ export default function SettingsPage() {
         }
       };
       reader.readAsText(file);
-      if(event.target) event.target.value = ''; // Reset file input
+      if(event.target) event.target.value = ''; 
     }
   };
 
   const handleImportConfirm = () => {
     if (backupToImport) {
       try {
-        const transactionsWithDateObjects: Transaction[] = backupToImport.transactions.map((tx: any) => ({
-          ...tx,
-          id: tx.id, // Já garantido como string
-          user_id: undefined, // Não usado com localStorage
-          type: tx.type === 'income' ? 'income' : 'expense',
-          description: tx.description,
-          amount: Number(tx.amount),
-          date: new Date(tx.date), // Converte string ISO para objeto Date
-          category: tx.category ? String(tx.category) : undefined,
-          source: tx.source ? String(tx.source) : undefined,
-          created_at: tx.created_at, // Já garantido como string
-        }));
+        const existingTransactions = getStoredTransactions();
+        const existingTransactionIds = new Set(existingTransactions.map(tx => tx.id));
+        
+        const newTransactionsFromBackup = backupToImport.transactions.filter(
+          (txFromFile: any) => !existingTransactionIds.has(txFromFile.id)
+        );
 
-        storeTransactions(transactionsWithDateObjects);
+        const transactionsToStore: Transaction[] = [
+          ...existingTransactions,
+          ...newTransactionsFromBackup.map((tx: any) => ({
+            ...tx,
+            user_id: undefined,
+            type: tx.type === 'income' ? 'income' : 'expense',
+            amount: Number(tx.amount),
+            date: new Date(tx.date), 
+            category: tx.category ? String(tx.category) : undefined,
+            source: tx.source ? String(tx.source) : undefined,
+          }))
+        ];
 
-        if (backupToImport.monthlyGoal !== null && backupToImport.monthlyGoal !== undefined) {
-          localStorage.setItem(MONTHLY_SPENDING_GOAL_KEY, backupToImport.monthlyGoal.toString());
-        } else {
-          localStorage.removeItem(MONTHLY_SPENDING_GOAL_KEY);
-        }
+        storeTransactions(transactionsToStore);
+
+        const localMonthlyGoal = localStorage.getItem(MONTHLY_SPENDING_GOAL_KEY);
+        if (localMonthlyGoal === null || localMonthlyGoal === undefined) { // Se não há meta local
+          if (backupToImport.monthlyGoal !== null && backupToImport.monthlyGoal !== undefined) {
+            localStorage.setItem(MONTHLY_SPENDING_GOAL_KEY, backupToImport.monthlyGoal.toString());
+          }
+        } // Se há meta local, ela é mantida e a do backup é ignorada.
 
         toast({
           title: "Backup Importado!",
-          description: "Seus dados foram restaurados. Pode ser necessário recarregar a página para ver todas as atualizações.",
+          description: "Novas transações do backup foram adicionadas. Os dados existentes foram mantidos. Pode ser necessário recarregar outras páginas para ver as atualizações.",
         });
         
-        // Recarrega os dados na página atual
-        loadMonthlyGoal(); 
-        // Para atualizar as transações em outras páginas, um recarregamento da página seria mais simples:
-        // window.location.reload(); 
-        // Ou disparar um evento customizado de storage para que outras páginas escutem e atualizem.
-
+        loadMonthlyGoal();
       } catch (error) {
         console.error("Erro ao processar e salvar backup:", error);
         toast({ title: "Erro ao Salvar Backup", description: "Ocorreu um erro ao salvar os dados do backup.", variant: "destructive" });
@@ -292,7 +291,7 @@ export default function SettingsPage() {
             />
           </div>
            <p className="text-xs text-muted-foreground">
-            A importação de um backup substituirá todos os dados atuais. Certifique-se de que o arquivo de backup é válido.
+            A importação de um backup adicionará novas transações. Transações e meta de gastos existentes não serão substituídas se já existirem.
           </p>
         </CardContent>
       </Card>
@@ -305,9 +304,10 @@ export default function SettingsPage() {
                 Confirmar Importação de Backup
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza de que deseja importar os dados deste arquivo de backup? 
-              <span className="font-semibold text-destructive"> Todos os seus dados atuais (transações e meta de gastos) serão substituídos.</span> 
-              Esta ação não pode ser desfeita.
+              Tem certeza de que deseja importar os dados deste arquivo? 
+              Novas transações do arquivo serão adicionadas. 
+              Transações existentes com os mesmos IDs não serão alteradas.
+              A meta de gastos só será atualizada se nenhuma meta estiver definida localmente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -316,7 +316,7 @@ export default function SettingsPage() {
               onClick={handleImportConfirm}
               className="bg-primary hover:bg-primary/90"
             >
-              Sim, Importar e Substituir
+              Sim, Importar Dados
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
