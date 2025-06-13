@@ -86,7 +86,7 @@ export default function SettingsPage() {
       }
 
       const backupData = {
-        transactions: transactions.map(tx => ({...tx, date: tx.date.toISOString()})), 
+        transactions: transactions.map(tx => ({...tx, date: tx.date instanceof Date ? tx.date.toISOString() : tx.date})),
         monthlyGoal: monthlyGoalValue,
       };
 
@@ -104,7 +104,7 @@ export default function SettingsPage() {
 
       toast({
         title: "Backup Exportado",
-        description: "O arquivo de backup foi baixado com sucesso.",
+        description: "O arquivo foi baixado. No Android, verifique sua pasta 'Downloads' e as notificações do sistema.",
       });
     } catch (error) {
       console.error("Erro ao exportar backup:", error);
@@ -185,7 +185,7 @@ export default function SettingsPage() {
           ...existingTransactions,
           ...newTransactionsFromBackup.map((tx: any) => ({
             ...tx,
-            user_id: undefined,
+            user_id: undefined, // Garantir que não estamos tentando usar um user_id de um sistema antigo
             type: tx.type === 'income' ? 'income' : 'expense',
             amount: Number(tx.amount),
             date: new Date(tx.date), 
@@ -197,18 +197,18 @@ export default function SettingsPage() {
         storeTransactions(transactionsToStore);
 
         const localMonthlyGoal = localStorage.getItem(MONTHLY_SPENDING_GOAL_KEY);
-        if (localMonthlyGoal === null || localMonthlyGoal === undefined) { // Se não há meta local
+        if (localMonthlyGoal === null || localMonthlyGoal === undefined) { 
           if (backupToImport.monthlyGoal !== null && backupToImport.monthlyGoal !== undefined) {
             localStorage.setItem(MONTHLY_SPENDING_GOAL_KEY, backupToImport.monthlyGoal.toString());
           }
-        } // Se há meta local, ela é mantida e a do backup é ignorada.
+        } 
 
         toast({
           title: "Backup Importado!",
           description: "Novas transações do backup foram adicionadas. Os dados existentes foram mantidos. Pode ser necessário recarregar outras páginas para ver as atualizações.",
         });
         
-        loadMonthlyGoal();
+        loadMonthlyGoal(); // Recarregar a meta, caso tenha sido importada
       } catch (error) {
         console.error("Erro ao processar e salvar backup:", error);
         toast({ title: "Erro ao Salvar Backup", description: "Ocorreu um erro ao salvar os dados do backup.", variant: "destructive" });
