@@ -3,13 +3,13 @@
 
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList } from 'recharts';
 import type { Transaction } from '@/types';
-import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isValid, isWithinInterval } from 'date-fns';
+import { format, subDays, eachDayOfInterval, startOfDay, endOfDay, isValid, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Image from 'next/image';
 
-interface IncomeExpenseChartProps {
+interface DailyTransactionChartProps {
   transactions: Transaction[];
 }
 
@@ -18,39 +18,32 @@ const ValueFormatter = (value: number) => {
   return `${CURRENCY_SYMBOL}${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
-export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartProps) {
-  const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
-  const currentMonthEnd = endOfMonth(new Date());
-  
-  const monthsInterval = eachMonthOfInterval({ 
-    start: sixMonthsAgo, 
-    end: currentMonthEnd 
-  });
+export default function DailyTransactionChart({ transactions }: DailyTransactionChartProps) {
+  const today = new Date();
+  const sevenDaysAgo = subDays(today, 6); // Includes today
+  const dateInterval = eachDayOfInterval({ start: startOfDay(sevenDaysAgo), end: endOfDay(today) });
 
-  const data = monthsInterval.map(monthStart => {
-    const monthLabel = format(monthStart, 'MMM yy', { locale: ptBR });
-    const monthEnd = endOfMonth(monthStart);
-
-    const monthlyIncome = transactions
+  const data = dateInterval.map(day => {
+    const dayLabel = format(day, 'dd/MM', { locale: ptBR });
+    const dailyIncome = transactions
       .filter(t => 
         t.type === 'income' && 
         isValid(new Date(t.date)) &&
-        isWithinInterval(new Date(t.date), { start: monthStart, end: monthEnd })
+        isWithinInterval(new Date(t.date), { start: startOfDay(day), end: endOfDay(day) })
       )
       .reduce((sum, t) => sum + t.amount, 0);
-      
-    const monthlyExpenses = transactions
+    const dailyExpenses = transactions
       .filter(t => 
         t.type === 'expense' && 
         isValid(new Date(t.date)) &&
-        isWithinInterval(new Date(t.date), { start: monthStart, end: monthEnd })
+        isWithinInterval(new Date(t.date), { start: startOfDay(day), end: endOfDay(day) })
       )
       .reduce((sum, t) => sum + t.amount, 0);
-
+    
     return {
-      name: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1), // Capitalize month
-      Receita: monthlyIncome,
-      Despesas: monthlyExpenses, 
+      name: dayLabel,
+      Receita: dailyIncome,
+      Despesas: dailyExpenses,
     };
   });
 
@@ -58,22 +51,21 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
      return (
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Receitas vs. Despesas Mensais</CardTitle>
-          <CardDescription>Nenhum dado de transação disponível para os últimos 6 meses.</CardDescription>
+          <CardTitle className="font-headline">Receitas vs. Despesas Diárias</CardTitle>
+          <CardDescription>Nenhum dado de transação disponível para os últimos 7 dias.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center h-64">
-          <Image src="https://placehold.co/200x150.png" alt="Sem dados para o gráfico mensal" width={200} height={150} className="mb-4 rounded-md" data-ai-hint="gráfico mês vazio"/>
-          <p className="text-muted-foreground">Adicione transações para ver o resumo mensal.</p>
+          <Image src="https://placehold.co/200x150.png" alt="Sem dados para o gráfico diário" width={200} height={150} className="mb-4 rounded-md" data-ai-hint="gráfico dia vazio"/>
+          <p className="text-muted-foreground">Adicione transações para ver o resumo diário.</p>
         </CardContent>
       </Card>
     );
   }
 
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline">Receitas vs. Despesas Mensais (Últimos 6 Meses)</CardTitle>
+        <CardTitle className="font-headline">Receitas vs. Despesas Diárias (Últimos 7 Dias)</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
