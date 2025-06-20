@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
 import { Label } from '@/components/ui/label';
-import { DollarSign, DownloadCloud, UploadCloud, AlertTriangle } from 'lucide-react';
+import { DollarSign, DownloadCloud, UploadCloud, AlertTriangle, Share2 } from 'lucide-react';
 import { getStoredTransactions, storeTransactions } from '@/lib/transactionStorage';
 import type { Transaction } from '@/types';
 import {
@@ -73,7 +73,23 @@ export default function SettingsPage() {
     });
   };
 
-  const handleExportBackup = () => {
+  const performDirectDownload = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({
+      title: "Download Iniciado!",
+      description: "Seu backup está sendo baixado. No Android, procure na pasta 'Downloads' usando o app 'Arquivos' (ou similar) do seu celular. Verifique também as notificações de download do sistema e clique nela para acessar o arquivo.",
+      duration: 9000
+    });
+  };
+
+  const handleExportBackup = async () => {
     try {
       const transactions = getStoredTransactions();
       const storedMonthlyGoal = localStorage.getItem(MONTHLY_SPENDING_GOAL_KEY);
@@ -92,26 +108,42 @@ export default function SettingsPage() {
 
       const jsonString = JSON.stringify(backupData, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
       const today = new Date().toISOString().slice(0, 10);
-      a.download = `fluxo_financeiro_backup_${today}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const fileName = `fluxo_financeiro_backup_${today}.json`;
+      const file = new File([blob], fileName, { type: 'application/json' });
 
-      toast({
-        title: "Backup Exportado!",
-        description: "No Android: Verifique a notificação de 'Download Concluído' do sistema. Clique nela para abrir o arquivo. Se não vir, procure na pasta 'Downloads' usando o app 'Arquivos'.",
-        duration: 9000 // Aumenta a duração para dar tempo de ler
-      });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'Backup Fluxo Financeiro',
+            text: `Backup dos dados do Fluxo Financeiro de ${today}.`,
+            files: [file],
+          });
+          toast({
+            title: "Compartilhado!",
+            description: "O arquivo de backup foi compartilhado com sucesso.",
+          });
+        } catch (error: any) {
+          if (error.name === 'AbortError') {
+            toast({
+              title: "Compartilhamento Cancelado",
+              description: "Você cancelou o compartilhamento. O arquivo não foi baixado.",
+              variant: "default",
+            });
+          } else {
+            // Se o compartilhamento falhar por outro motivo, tente o download direto
+            performDirectDownload(blob, fileName);
+          }
+        }
+      } else {
+        // Fallback para download direto se a Web Share API não estiver disponível
+        performDirectDownload(blob, fileName);
+      }
     } catch (error) {
       console.error("Erro ao exportar backup:", error);
       toast({
         title: "Erro ao Exportar",
-        description: "Não foi possível gerar o arquivo de backup.",
+        description: "Não foi possível gerar o arquivo de backup para download ou compartilhamento.",
         variant: "destructive",
       });
     }
@@ -276,8 +308,8 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <Button onClick={handleExportBackup} variant="outline" className="w-full sm:w-auto">
-              <DownloadCloud className="mr-2 h-4 w-4" />
-              Exportar Backup
+              <Share2 className="mr-2 h-4 w-4" /> 
+              Exportar / Compartilhar
             </Button>
             <Button onClick={handleImportClick} variant="outline" className="w-full sm:w-auto">
               <UploadCloud className="mr-2 h-4 w-4" />
@@ -292,6 +324,7 @@ export default function SettingsPage() {
             />
           </div>
            <p className="text-xs text-muted-foreground">
+            Ao exportar, tentaremos usar o compartilhamento do sistema (ex: WhatsApp). Se não for possível, o download iniciará.
             A importação de um backup adicionará novas transações. Transações e meta de gastos existentes não serão substituídas se já existirem.
           </p>
         </CardContent>
