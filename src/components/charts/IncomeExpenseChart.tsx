@@ -46,10 +46,10 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
           Despesas: monthlyExpenses,
         };
       });
-    } else { // Daily view
+    } else { // Daily view for last 30 days
       const today = new Date();
-      const sevenDaysAgo = subDays(today, 6);
-      const dateInterval = eachDayOfInterval({ start: startOfDay(sevenDaysAgo), end: endOfDay(today) });
+      const thirtyDaysAgo = subDays(today, 29); // Includes today, so 29 days back + today = 30 days
+      const dateInterval = eachDayOfInterval({ start: startOfDay(thirtyDaysAgo), end: endOfDay(today) });
 
       return dateInterval.map(day => {
         const dayLabel = format(day, 'dd/MM', { locale: ptBR });
@@ -68,9 +68,10 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
     }
   }, [transactions, viewMode]);
 
-  const chartTitle = viewMode === 'monthly' ? 'Receitas vs. Despesas Mensais (Últimos 6 Meses)' : 'Receitas vs. Despesas Diárias (Últimos 7 Dias)';
-  const emptyStateDescription = viewMode === 'monthly' ? 'Nenhum dado de transação disponível para os últimos 6 meses.' : 'Nenhum dado de transação disponível para os últimos 7 dias.';
+  const chartTitle = viewMode === 'monthly' ? 'Receitas vs. Despesas Mensais (Últimos 6 Meses)' : 'Receitas vs. Despesas Diárias (Últimos 30 Dias)';
+  const emptyStateDescription = viewMode === 'monthly' ? 'Nenhum dado de transação disponível para os últimos 6 meses.' : 'Nenhum dado de transação disponível para os últimos 30 dias.';
   const emptyStateHint = viewMode === 'monthly' ? 'gráfico mês vazio' : 'gráfico dia vazio';
+  const dailyViewLabel = "Diária (30 dias)";
 
   if (chartData.every(d => d.Receita === 0 && d.Despesas === 0)) {
     return (
@@ -84,7 +85,7 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="monthly">Mensal (6 meses)</SelectItem>
-                <SelectItem value="daily">Diária (7 dias)</SelectItem>
+                <SelectItem value="daily">{dailyViewLabel}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -109,7 +110,7 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="monthly">Mensal (6 meses)</SelectItem>
-              <SelectItem value="daily">Diária (7 dias)</SelectItem>
+              <SelectItem value="daily">{dailyViewLabel}</SelectItem>
             </SelectContent>
           </Select>
         </div>
