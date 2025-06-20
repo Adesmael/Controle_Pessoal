@@ -103,8 +103,9 @@ export default function SettingsPage() {
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Backup Exportado com Sucesso!",
-        description: "No Android, procure na pasta 'Downloads' usando o app 'Arquivos' (ou similar) do seu celular. Verifique também as notificações de download.",
+        title: "Backup Exportado!",
+        description: "No Android: Verifique a notificação de 'Download Concluído' do sistema. Clique nela para abrir o arquivo. Se não vir, procure na pasta 'Downloads' usando o app 'Arquivos'.",
+        duration: 9000 // Aumenta a duração para dar tempo de ler
       });
     } catch (error) {
       console.error("Erro ao exportar backup:", error);
