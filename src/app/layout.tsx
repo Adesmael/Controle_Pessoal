@@ -55,7 +55,7 @@ export default function RootLayout({
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Painel">
                     <Link href="/">
-                      <LayoutDashboard />
+                      <LayoutDashboard className="text-sky-600 dark:text-sky-500" />
                       <span>Painel</span>
                     </Link>
                   </SidebarMenuButton>
@@ -63,7 +63,7 @@ export default function RootLayout({
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Registrar Receita">
                     <Link href="/income">
-                      <TrendingUp />
+                      <TrendingUp className="text-blue-600 dark:text-blue-500" />
                       <span>Receitas</span>
                     </Link>
                   </SidebarMenuButton>
@@ -71,7 +71,7 @@ export default function RootLayout({
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Registrar Despesa">
                     <Link href="/expenses">
-                      <TrendingDown />
+                      <TrendingDown className="text-red-600 dark:text-red-500" />
                       <span>Despesas</span>
                     </Link>
                   </SidebarMenuButton>
@@ -79,7 +79,7 @@ export default function RootLayout({
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Ver Relatórios">
                     <Link href="/reports">
-                      <BarChart3 />
+                      <BarChart3 className="text-emerald-600 dark:text-emerald-500" />
                       <span>Relatórios</span>
                     </Link>
                   </SidebarMenuButton>
@@ -87,7 +87,7 @@ export default function RootLayout({
                 <SidebarMenuItem>
                    <SidebarMenuButton asChild tooltip="Configurações">
                     <Link href="/settings">
-                      <Settings />
+                      <Settings className="text-violet-600 dark:text-violet-500" />
                       <span>Configurações</span>
                     </Link>
                   </SidebarMenuButton>

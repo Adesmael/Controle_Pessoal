@@ -7,11 +7,11 @@ import { LayoutDashboard, TrendingUp, TrendingDown, BarChart3, Settings } from '
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/', label: 'Painel', icon: LayoutDashboard },
-  { href: '/income', label: 'Receitas', icon: TrendingUp },
-  { href: '/expenses', label: 'Despesas', icon: TrendingDown },
-  { href: '/reports', label: 'Relatórios', icon: BarChart3 },
-  { href: '/settings', label: 'Ajustes', icon: Settings },
+  { href: '/', label: 'Painel', icon: LayoutDashboard, colorClass: 'text-sky-600 dark:text-sky-500' },
+  { href: '/income', label: 'Receitas', icon: TrendingUp, colorClass: 'text-blue-600 dark:text-blue-500' },
+  { href: '/expenses', label: 'Despesas', icon: TrendingDown, colorClass: 'text-red-600 dark:text-red-500' },
+  { href: '/reports', label: 'Relatórios', icon: BarChart3, colorClass: 'text-emerald-600 dark:text-emerald-500' },
+  { href: '/settings', label: 'Ajustes', icon: Settings, colorClass: 'text-violet-600 dark:text-violet-500' },
 ];
 
 export default function MobileNavigation() {
@@ -29,11 +29,11 @@ export default function MobileNavigation() {
               className={cn(
                 'flex flex-1 flex-col items-center justify-center space-y-1 rounded-md p-1 text-[10px] font-medium transition-colors sm:text-xs hover:bg-accent/50',
                 isActive
-                  ? 'text-primary'
+                  ? 'text-primary' // Label text color for active item
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <item.icon className={cn('h-5 w-5 sm:h-5 sm:w-5', isActive ? 'text-primary' : '')} />
+              <item.icon className={cn('h-5 w-5 sm:h-5 sm:w-5', item.colorClass)} /> {/* Icon always has its specific color */}
               <span className="truncate">{item.label}</span>
             </Link>
           );
