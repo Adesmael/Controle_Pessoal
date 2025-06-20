@@ -103,8 +103,8 @@ export default function SettingsPage() {
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Backup Exportado",
-        description: "O arquivo foi baixado. No Android, verifique sua pasta 'Downloads' e as notificações do sistema.",
+        title: "Backup Exportado com Sucesso!",
+        description: "No Android, procure na pasta 'Downloads' usando o app 'Arquivos' (ou similar) do seu celular. Verifique também as notificações de download.",
       });
     } catch (error) {
       console.error("Erro ao exportar backup:", error);
@@ -185,7 +185,7 @@ export default function SettingsPage() {
           ...existingTransactions,
           ...newTransactionsFromBackup.map((tx: any) => ({
             ...tx,
-            user_id: undefined, // Garantir que não estamos tentando usar um user_id de um sistema antigo
+            user_id: undefined, 
             type: tx.type === 'income' ? 'income' : 'expense',
             amount: Number(tx.amount),
             date: new Date(tx.date), 
@@ -208,7 +208,7 @@ export default function SettingsPage() {
           description: "Novas transações do backup foram adicionadas. Os dados existentes foram mantidos. Pode ser necessário recarregar outras páginas para ver as atualizações.",
         });
         
-        loadMonthlyGoal(); // Recarregar a meta, caso tenha sido importada
+        loadMonthlyGoal(); 
       } catch (error) {
         console.error("Erro ao processar e salvar backup:", error);
         toast({ title: "Erro ao Salvar Backup", description: "Ocorreu um erro ao salvar os dados do backup.", variant: "destructive" });
