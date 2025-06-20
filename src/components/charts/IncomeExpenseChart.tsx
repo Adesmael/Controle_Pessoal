@@ -1,17 +1,21 @@
 
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList } from 'recharts';
 import type { Transaction } from '@/types';
-import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isValid, isWithinInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isValid, isWithinInterval, subDays, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Image from 'next/image';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface IncomeExpenseChartProps {
   transactions: Transaction[];
 }
+
+type ViewMode = 'monthly' | 'daily';
 
 const ValueFormatter = (value: number) => {
   if (value === 0) return '';
@@ -19,65 +23,100 @@ const ValueFormatter = (value: number) => {
 };
 
 export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartProps) {
-  const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
-  const currentMonthEnd = endOfMonth(new Date());
-  
-  const monthsInterval = eachMonthOfInterval({ 
-    start: sixMonthsAgo, 
-    end: currentMonthEnd 
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
 
-  const data = monthsInterval.map(monthStart => {
-    const monthLabel = format(monthStart, 'MMM yy', { locale: ptBR });
-    const monthEnd = endOfMonth(monthStart);
+  const chartData = useMemo(() => {
+    if (viewMode === 'monthly') {
+      const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
+      const currentMonthEnd = endOfMonth(new Date());
+      const monthsInterval = eachMonthOfInterval({ start: sixMonthsAgo, end: currentMonthEnd });
 
-    const monthlyIncome = transactions
-      .filter(t => 
-        t.type === 'income' && 
-        isValid(new Date(t.date)) &&
-        isWithinInterval(new Date(t.date), { start: monthStart, end: monthEnd })
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-      
-    const monthlyExpenses = transactions
-      .filter(t => 
-        t.type === 'expense' && 
-        isValid(new Date(t.date)) &&
-        isWithinInterval(new Date(t.date), { start: monthStart, end: monthEnd })
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
+      return monthsInterval.map(monthStart => {
+        const monthLabel = format(monthStart, 'MMM yy', { locale: ptBR });
+        const monthEndRange = endOfMonth(monthStart);
+        const monthlyIncome = transactions
+          .filter(t => t.type === 'income' && isValid(new Date(t.date)) && isWithinInterval(new Date(t.date), { start: monthStart, end: monthEndRange }))
+          .reduce((sum, t) => sum + t.amount, 0);
+        const monthlyExpenses = transactions
+          .filter(t => t.type === 'expense' && isValid(new Date(t.date)) && isWithinInterval(new Date(t.date), { start: monthStart, end: monthEndRange }))
+          .reduce((sum, t) => sum + t.amount, 0);
+        return {
+          name: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+          Receita: monthlyIncome,
+          Despesas: monthlyExpenses,
+        };
+      });
+    } else { // Daily view
+      const today = new Date();
+      const sevenDaysAgo = subDays(today, 6);
+      const dateInterval = eachDayOfInterval({ start: startOfDay(sevenDaysAgo), end: endOfDay(today) });
 
-    return {
-      name: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1), // Capitalize month
-      Receita: monthlyIncome,
-      Despesas: monthlyExpenses, 
-    };
-  });
+      return dateInterval.map(day => {
+        const dayLabel = format(day, 'dd/MM', { locale: ptBR });
+        const dailyIncome = transactions
+          .filter(t => t.type === 'income' && isValid(new Date(t.date)) && isWithinInterval(new Date(t.date), { start: startOfDay(day), end: endOfDay(day) }))
+          .reduce((sum, t) => sum + t.amount, 0);
+        const dailyExpenses = transactions
+          .filter(t => t.type === 'expense' && isValid(new Date(t.date)) && isWithinInterval(new Date(t.date), { start: startOfDay(day), end: endOfDay(day) }))
+          .reduce((sum, t) => sum + t.amount, 0);
+        return {
+          name: dayLabel,
+          Receita: dailyIncome,
+          Despesas: dailyExpenses,
+        };
+      });
+    }
+  }, [transactions, viewMode]);
 
-  if (data.every(d => d.Receita === 0 && d.Despesas === 0)) {
-     return (
+  const chartTitle = viewMode === 'monthly' ? 'Receitas vs. Despesas Mensais (Últimos 6 Meses)' : 'Receitas vs. Despesas Diárias (Últimos 7 Dias)';
+  const emptyStateDescription = viewMode === 'monthly' ? 'Nenhum dado de transação disponível para os últimos 6 meses.' : 'Nenhum dado de transação disponível para os últimos 7 dias.';
+  const emptyStateHint = viewMode === 'monthly' ? 'gráfico mês vazio' : 'gráfico dia vazio';
+
+  if (chartData.every(d => d.Receita === 0 && d.Despesas === 0)) {
+    return (
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Receitas vs. Despesas Mensais</CardTitle>
-          <CardDescription>Nenhum dado de transação disponível para os últimos 6 meses.</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <CardTitle className="font-headline">{chartTitle}</CardTitle>
+            <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Selecionar Visualização" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Mensal (6 meses)</SelectItem>
+                <SelectItem value="daily">Diária (7 dias)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <CardDescription>{emptyStateDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center h-64">
-          <Image src="https://placehold.co/200x150.png" alt="Sem dados para o gráfico mensal" width={200} height={150} className="mb-4 rounded-md" data-ai-hint="gráfico mês vazio"/>
-          <p className="text-muted-foreground">Adicione transações para ver o resumo mensal.</p>
+          <Image src="https://placehold.co/200x150.png" alt="Sem dados para o gráfico" width={200} height={150} className="mb-4 rounded-md" data-ai-hint={emptyStateHint} />
+          <p className="text-muted-foreground">Adicione transações para ver o resumo.</p>
         </CardContent>
       </Card>
     );
   }
 
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline">Receitas vs. Despesas Mensais (Últimos 6 Meses)</CardTitle>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+          <CardTitle className="font-headline">{chartTitle}</CardTitle>
+          <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Selecionar Visualização" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Mensal (6 meses)</SelectItem>
+              <SelectItem value="daily">Diária (7 dias)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data} margin={{ top: 20, right: 0, left: -20, bottom: 5 }}>
+          <BarChart data={chartData} margin={{ top: 20, right: 0, left: -20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
             <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `${CURRENCY_SYMBOL}${value.toLocaleString('pt-BR')}`} />
