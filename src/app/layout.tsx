@@ -95,7 +95,7 @@ export default function RootLayout({
               </SidebarMenu>
             </SidebarContent>
             <SidebarFooter>
-              {/* O item Configurações foi movido para SidebarContent */}
+              {/* O SidebarFooter agora está vazio de itens de menu principais */}
             </SidebarFooter>
           </Sidebar>
 
