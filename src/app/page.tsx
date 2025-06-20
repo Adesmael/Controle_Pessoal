@@ -270,10 +270,10 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Data</TableHead>
+                    <TableHead className="font-bold">Descrição</TableHead>
+                    <TableHead className="font-bold">Tipo</TableHead>
+                    <TableHead className="font-bold">Valor</TableHead>
+                    <TableHead className="font-bold">Data</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

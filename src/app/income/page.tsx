@@ -116,11 +116,11 @@ export default function IncomePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Fonte</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="font-bold">Descrição</TableHead>
+                    <TableHead className="font-bold">Valor</TableHead>
+                    <TableHead className="font-bold">Data</TableHead>
+                    <TableHead className="font-bold">Fonte</TableHead>
+                    <TableHead className="text-right font-bold">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

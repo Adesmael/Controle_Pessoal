@@ -436,11 +436,11 @@ export default function ReportsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Categoria/Fonte</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="font-bold">Data</TableHead>
+                    <TableHead className="font-bold">Descrição</TableHead>
+                    <TableHead className="font-bold">Tipo</TableHead>
+                    <TableHead className="font-bold">Categoria/Fonte</TableHead>
+                    <TableHead className="text-right font-bold">Valor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
