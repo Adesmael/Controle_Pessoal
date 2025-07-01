@@ -145,16 +145,25 @@ export default function SettingsPage() {
           if (error.name === 'AbortError') {
             toast({
               title: "Compartilhamento Cancelado",
-              description: "Você cancelou o compartilhamento. O arquivo não foi baixado.",
+              description: "A ação foi cancelada pelo usuário.",
               variant: "default",
             });
           } else {
-            // Se o compartilhamento falhar por outro motivo, tente o download direto
+            console.error('Web Share API failed, falling back to download:', error);
+            toast({
+              title: "Compartilhamento Falhou",
+              description: "Não foi possível compartilhar. Iniciando download direto...",
+              variant: "default",
+            });
             performDirectDownload(blob, fileName);
           }
         }
       } else {
-        // Fallback para download direto se a Web Share API não estiver disponível
+        toast({
+            title: "Iniciando Download",
+            description: "Seu navegador não suporta compartilhamento. O arquivo será baixado diretamente.",
+            variant: "default",
+        });
         performDirectDownload(blob, fileName);
       }
     } catch (error) {
@@ -419,4 +428,5 @@ export default function SettingsPage() {
       </AlertDialog>
     </div>
   );
-}
+
+    
