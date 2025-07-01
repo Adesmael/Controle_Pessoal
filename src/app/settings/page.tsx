@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import Link from 'next/link';
 import { addLog } from '@/lib/logStorage';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 export default function SettingsPage() {
   const [goal, setGoal] = useState<string>('');
@@ -96,7 +98,7 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
     toast({
       title: "Download Iniciado!",
-      description: "Seu backup está sendo baixado. No Android, procure na pasta 'Downloads' usando o app 'Arquivos' (ou similar) do seu celular. Verifique também as notificações de download do sistema e clique nela para acessar o arquivo.",
+      description: "Seu backup está sendo baixado no navegador.",
       duration: 9000
     });
   };
@@ -130,6 +132,7 @@ export default function SettingsPage() {
       const fileName = `fluxo_financeiro_backup_${today}.json`;
       const file = new File([blob], fileName, { type: 'application/json' });
 
+      // Method 1: Web Share API (Best for Mobile)
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -141,6 +144,7 @@ export default function SettingsPage() {
             title: "Compartilhado!",
             description: "O arquivo de backup foi compartilhado com sucesso.",
           });
+          return; // Success, exit
         } catch (error: any) {
           if (error.name === 'AbortError') {
             toast({
@@ -148,29 +152,48 @@ export default function SettingsPage() {
               description: "A ação foi cancelada pelo usuário.",
               variant: "default",
             });
-          } else {
-            console.error('Web Share API failed, falling back to download:', error);
-            toast({
-              title: "Compartilhamento Falhou",
-              description: "Não foi possível compartilhar. Iniciando download direto...",
-              variant: "default",
-            });
-            performDirectDownload(blob, fileName);
+            return; // User cancelled, exit
           }
+          // If sharing fails for other reasons, fall through to the next method.
+          console.warn('Web Share API failed, falling back:', error);
         }
-      } else {
-        toast({
-            title: "Iniciando Download",
-            description: "Seu navegador não suporta compartilhamento. O arquivo será baixado diretamente.",
-            variant: "default",
-        });
-        performDirectDownload(blob, fileName);
       }
+
+      // Method 2: Capacitor Filesystem (for native apps)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const result = await Filesystem.writeFile({
+            path: fileName,
+            data: jsonString,
+            directory: Directory.Downloads,
+            encoding: Encoding.UTF8,
+          });
+          toast({
+            title: "Backup Salvo no Dispositivo!",
+            description: `Arquivo salvo na sua pasta de Downloads. URI: ${result.uri}`,
+            duration: 9000
+          });
+          return; // Success, exit
+        } catch (fsError) {
+          console.error("Capacitor Filesystem Error:", fsError);
+          toast({
+            title: "Erro ao Salvar",
+            description: "Não foi possível salvar o arquivo. Verifique as permissões de armazenamento do aplicativo nas configurações do seu celular.",
+            variant: "destructive",
+            duration: 9000
+          });
+          return; // Error, exit
+        }
+      }
+
+      // Method 3: Standard Browser Download (for desktop web)
+      performDirectDownload(blob, fileName);
+      
     } catch (error) {
       console.error("Erro ao exportar backup:", error);
       toast({
         title: "Erro ao Exportar",
-        description: "Não foi possível gerar o arquivo de backup para download ou compartilhamento.",
+        description: "Não foi possível gerar o arquivo de backup.",
         variant: "destructive",
       });
     }
@@ -428,5 +451,4 @@ export default function SettingsPage() {
       </AlertDialog>
     </div>
   );
-
-    
+}
