@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import type { Transaction, ExpenseCategory } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
@@ -130,6 +131,7 @@ export default function ExpensesPage() {
                   <TableRow>
                     <TableHead className="font-bold">Descrição</TableHead>
                     <TableHead className="font-bold">Categoria</TableHead>
+                    <TableHead className="font-bold">Tipo</TableHead>
                     <TableHead className="font-bold">Valor</TableHead>
                     <TableHead className="font-bold">Data</TableHead>
                     <TableHead className="text-right font-bold">Ações</TableHead>
@@ -145,6 +147,13 @@ export default function ExpensesPage() {
                         <TableCell className="flex items-center">
                           <Icon className="h-5 w-5 mr-2 inline-block text-muted-foreground" />
                           {category?.label || expense.category || '-'}
+                        </TableCell>
+                         <TableCell>
+                          {expense.expenseSubtype && (
+                            <Badge variant={expense.expenseSubtype === 'fixed' ? 'secondary' : 'outline'}>
+                              {expense.expenseSubtype === 'fixed' ? 'Fixa' : 'Variável'}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-destructive"> 
                           {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

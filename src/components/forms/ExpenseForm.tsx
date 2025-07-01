@@ -26,6 +26,7 @@ import type { Transaction, ExpenseCategory } from '@/types';
 import React, { useState, useEffect } from 'react';
 import { getStoredExpenseCategories } from '@/lib/categoryStorage';
 import { getIcon } from '@/lib/iconMap';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const formSchema = z.object({
@@ -33,6 +34,7 @@ const formSchema = z.object({
   amount: z.coerce.number().positive({ message: 'O valor deve ser positivo.' }),
   date: z.date({ required_error: 'A data é obrigatória.' }),
   category: z.string({ required_error: 'Por favor, selecione uma categoria.' }),
+  expenseSubtype: z.enum(['fixed', 'variable'], { required_error: 'Selecione se a despesa é fixa ou variável.' }),
 });
 
 type ExpenseFormValues = z.infer<typeof formSchema>;
@@ -65,6 +67,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
       amount: '' as unknown as number,
       date: new Date(),
       category: undefined,
+      expenseSubtype: 'variable',
     },
   });
 
@@ -74,12 +77,14 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
       amount: values.amount,
       date: values.date,
       category: values.category,
+      expenseSubtype: values.expenseSubtype,
     });
     form.reset();
     form.setValue('amount', '' as unknown as number);
     form.setValue('date', new Date());
     form.setValue('category', undefined);
     form.setValue('description', '');
+    form.setValue('expenseSubtype', 'variable');
   }
 
   return (
@@ -98,55 +103,57 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="amount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Valor ({CURRENCY_SYMBOL})</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="ex: 50,00" {...field} step="0.01" value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : field.value} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}/>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="date"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Data da Despesa</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={'outline'}
-                      className={cn(
-                        'w-full pl-3 text-left font-normal',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                    >
-                      {field.value ? format(field.value, 'P', { locale: ptBR }) : <span>Escolha uma data</span>}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
-                    initialFocus
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valor ({CURRENCY_SYMBOL})</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="ex: 50,00" {...field} step="0.01" value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : field.value} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}/>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Data da Despesa</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={'outline'}
+                        className={cn(
+                          'w-full pl-3 text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        {field.value ? format(field.value, 'P', { locale: ptBR }) : <span>Escolha uma data</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                      initialFocus
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         <FormField
           control={form.control}
           name="category"
@@ -207,6 +214,36 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
                   </Command>
                 </PopoverContent>
               </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="expenseSubtype"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Tipo de Despesa</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex items-center gap-4"
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="variable" id="variable"/>
+                    </FormControl>
+                    <FormLabel htmlFor="variable" className="font-normal">Variável</FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="fixed" id="fixed"/>
+                    </FormControl>
+                    <FormLabel htmlFor="fixed" className="font-normal">Fixa</FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

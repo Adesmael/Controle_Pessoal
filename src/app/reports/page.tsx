@@ -2,12 +2,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import type { Transaction, TransactionType, ExpenseCategory } from '@/types';
+import type { Transaction, TransactionType, ExpenseCategory, ExpenseSubtype } from '@/types';
 import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
@@ -30,6 +31,12 @@ const typeFilterOptions = [
   { value: 'expense', label: 'Despesas' },
 ];
 
+const expenseSubtypeFilterOptions = [
+  { value: 'all', label: 'Ambos os Tipos' },
+  { value: 'fixed', label: 'Fixa' },
+  { value: 'variable', label: 'Variável' },
+];
+
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
@@ -40,6 +47,7 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [selectedType, setSelectedType] = useState<TransactionType | 'all' | undefined>('all');
+  const [selectedExpenseSubtype, setSelectedExpenseSubtype] = useState<ExpenseSubtype | 'all' | undefined>('all');
   
   useEffect(() => {
     function loadData() {
@@ -71,34 +79,40 @@ export default function ReportsPage() {
     if (startDate) dateParts.push(`de ${format(startDate, 'dd/MM/yy', { locale: ptBR })}`);
     if (endDate) dateParts.push(`até ${format(endDate, 'dd/MM/yy', { locale: ptBR })}`);
 
-    let filtersApplied = false;
+    let filtersApplied: string[] = [];
 
     if (dateParts.length > 0) {
-      descriptionText = 'Exibindo transações locais ' + dateParts.join(' ');
-      filtersApplied = true;
+      filtersApplied.push(dateParts.join(' '));
     }
 
     if (selectedType && selectedType !== 'all') {
       const typeLabel = typeFilterOptions.find(opt => opt.value === selectedType)?.label || selectedType;
-      descriptionText += `${filtersApplied ? '. ' : 'Exibindo transações locais '}Tipo: ${typeLabel}`;
-      filtersApplied = true;
+      filtersApplied.push(`Tipo: ${typeLabel}`);
     }
     
     if (selectedCategory) {
       const categoryLabel = expenseCategories.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
-      descriptionText += `${filtersApplied ? '. ' : 'Exibindo transações locais '}Despesas por: ${categoryLabel}`;
-      filtersApplied = true;
+      filtersApplied.push(`Categoria: ${categoryLabel}`);
+    }
+
+    if (selectedExpenseSubtype && selectedExpenseSubtype !== 'all' && selectedType !== 'income') {
+      const subtypeLabel = expenseSubtypeFilterOptions.find(opt => opt.value === selectedExpenseSubtype)?.label || '';
+      filtersApplied.push(`Despesas do tipo: ${subtypeLabel}`);
+    }
+
+    if (filtersApplied.length > 0) {
+      descriptionText = `Exibindo transações locais com filtros: ${filtersApplied.join('; ')}.`;
     }
     
     if (allTransactions.length === 0) {
         descriptionText = "Nenhuma transação registrada ainda. Adicione transações para vê-las aqui."
-    } else if (displayedTransactions.length === 0 && filtersApplied) {
+    } else if (displayedTransactions.length === 0 && filtersApplied.length > 0) {
         descriptionText = "Nenhuma transação encontrada para os filtros aplicados."
     }
 
 
     return descriptionText;
-  }, [startDate, endDate, selectedCategory, selectedType, displayedTransactions, allTransactions, expenseCategories]);
+  }, [startDate, endDate, selectedCategory, selectedType, selectedExpenseSubtype, displayedTransactions.length, allTransactions.length, expenseCategories]);
 
 
   const summary = useMemo(() => {
@@ -140,6 +154,18 @@ export default function ReportsPage() {
         });
       }
     }
+
+    if (selectedExpenseSubtype && selectedExpenseSubtype !== 'all') {
+       if (selectedType === 'all' || selectedType === 'expense') {
+         filtered = filtered.filter(t => {
+            if (t.type === 'expense') {
+              return t.expenseSubtype === selectedExpenseSubtype;
+            }
+            return selectedType === 'all' ? true : false; 
+         })
+       }
+    }
+    
     setDisplayedTransactions(filtered);
      if (filtered.length === 0 && allTransactions.length > 0) {
         toast({
@@ -155,6 +181,7 @@ export default function ReportsPage() {
     setEndDate(undefined);
     setSelectedCategory(undefined);
     setSelectedType('all');
+    setSelectedExpenseSubtype('all');
     setDisplayedTransactions(allTransactions); 
   };
 
@@ -172,6 +199,7 @@ export default function ReportsPage() {
       'Data': format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR }),
       'Descrição': transaction.description,
       'Tipo': transaction.type === 'income' ? 'Receita' : 'Despesa',
+      'Tipo de Despesa': transaction.type === 'expense' ? (transaction.expenseSubtype === 'fixed' ? 'Fixa' : 'Variável') : '',
       'Categoria/Fonte': transaction.type === 'expense'
         ? (expenseCategories.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
         : (transaction.source || '-'),
@@ -180,16 +208,16 @@ export default function ReportsPage() {
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     worksheet['!cols'] = [
-      { wch: 12 }, { wch: 40 }, { wch: 10 }, { wch: 25 }, { wch: 15 }
+      { wch: 12 }, { wch: 40 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 15 }
     ];
     dataToExport.forEach((_, index) => {
-      const cellRef = XLSX.utils.encode_cell({c: 4, r: index + 1});
+      const cellRef = XLSX.utils.encode_cell({c: 5, r: index + 1});
       if(worksheet[cellRef]) {
          worksheet[cellRef].z = `"${CURRENCY_SYMBOL}" #,##0.00;[Red]-"${CURRENCY_SYMBOL}" #,##0.00`;
          worksheet[cellRef].t = 'n';
       }
     });
-    XLSX.utils.sheet_add_aoa(worksheet, [['Data', 'Descrição', 'Tipo', `Categoria/Fonte`, `Valor (${CURRENCY_SYMBOL})`]], { origin: 'A1' });
+    XLSX.utils.sheet_add_aoa(worksheet, [['Data', 'Descrição', 'Tipo', 'Tipo de Despesa', 'Categoria/Fonte', `Valor (${CURRENCY_SYMBOL})`]], { origin: 'A1' });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Transações');
     XLSX.writeFile(workbook, 'transacoes_fluxo_financeiro.xlsx');
@@ -252,7 +280,7 @@ export default function ReportsPage() {
           <CardTitle className="font-headline text-lg">Filtrar Transações</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
                 <div className="grid gap-2 w-full">
                     <label htmlFor="startDate" className="text-sm font-medium">Data Inicial</label>
                     <Popover>
@@ -320,6 +348,25 @@ export default function ReportsPage() {
                         </SelectTrigger>
                         <SelectContent>
                         {typeFilterOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2 w-full">
+                    <label htmlFor="expenseSubtypeFilter" className="text-sm font-medium">Tipo de Despesa</label>
+                    <Select
+                        value={selectedExpenseSubtype}
+                        onValueChange={(value) => setSelectedExpenseSubtype(value as ExpenseSubtype | 'all' | undefined)}
+                        disabled={selectedType === 'income'}
+                    >
+                        <SelectTrigger id="expenseSubtypeFilter" className="w-full">
+                        <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {expenseSubtypeFilterOptions.map(option => (
                             <SelectItem key={option.value} value={option.value}>
                             {option.label}
                             </SelectItem>
@@ -437,6 +484,7 @@ export default function ReportsPage() {
                     <TableHead className="font-bold">Data</TableHead>
                     <TableHead className="font-bold">Descrição</TableHead>
                     <TableHead className="font-bold">Tipo</TableHead>
+                    <TableHead className="font-bold">Tipo Despesa</TableHead>
                     <TableHead className="font-bold">Categoria/Fonte</TableHead>
                     <TableHead className="text-right font-bold">Valor</TableHead>
                   </TableRow>
@@ -455,6 +503,13 @@ export default function ReportsPage() {
                           }`}>
                             {transaction.type === 'income' ? 'Receita' : 'Despesa'}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          {transaction.type === 'expense' && transaction.expenseSubtype && (
+                            <Badge variant={transaction.expenseSubtype === 'fixed' ? 'secondary' : 'outline'}>
+                              {transaction.expenseSubtype === 'fixed' ? 'Fixa' : 'Variável'}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="flex items-center">
                           {transaction.type === 'expense' && <Icon className="h-4 w-4 mr-1 inline-block text-muted-foreground" />}

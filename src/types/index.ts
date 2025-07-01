@@ -2,6 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 
 export type TransactionType = 'income' | 'expense';
+export type ExpenseSubtype = 'fixed' | 'variable';
 
 export interface Transaction {
   id: string;
@@ -12,6 +13,7 @@ export interface Transaction {
   date: Date; // Stored as ISO string in localStorage, converted to Date object in app
   category?: string; 
   source?: string; 
+  expenseSubtype?: ExpenseSubtype;
   created_at: string; // ISO string, set at creation time
 }
 
