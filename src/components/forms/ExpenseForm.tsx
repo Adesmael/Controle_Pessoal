@@ -21,11 +21,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
-import type { Transaction } from '@/types'; // O tipo Transaction não é diretamente usado aqui, mas sim seus sub-campos.
-import React from 'react';
+import { CURRENCY_SYMBOL } from '@/lib/constants';
+import type { Transaction, ExpenseCategory } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { getStoredExpenseCategories } from '@/lib/categoryStorage';
+import { getIcon } from '@/lib/iconMap';
 
-// Esquema para validação do formulário
+
 const formSchema = z.object({
   description: z.string().min(2, { message: 'A descrição deve ter pelo menos 2 caracteres.' }).max(100),
   amount: z.coerce.number().positive({ message: 'O valor deve ser positivo.' }),
@@ -33,7 +35,6 @@ const formSchema = z.object({
   category: z.string({ required_error: 'Por favor, selecione uma categoria.' }),
 });
 
-// Tipo para os dados do formulário inferido do esquema Zod
 type ExpenseFormValues = z.infer<typeof formSchema>;
 
 interface ExpenseFormProps {
@@ -41,6 +42,22 @@ interface ExpenseFormProps {
 }
 
 export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+  
+  useEffect(() => {
+    setExpenseCategories(getStoredExpenseCategories());
+  
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'financialApp_expense_categories') {
+        setExpenseCategories(getStoredExpenseCategories());
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -148,7 +165,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
                       )}
                     >
                       {field.value
-                        ? EXPENSE_CATEGORIES.find(
+                        ? expenseCategories.find(
                             (category) => category.value === field.value
                           )?.label
                         : "Selecione a categoria"}
@@ -162,26 +179,29 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
                     <CommandList>
                       <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
                       <CommandGroup>
-                        {EXPENSE_CATEGORIES.map((category) => (
-                          <CommandItem
-                            value={category.label}
-                            key={category.value}
-                            onSelect={() => {
-                              form.setValue("category", category.value)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                category.value === field.value
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            <category.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                            {category.label}
-                          </CommandItem>
-                        ))}
+                        {expenseCategories.map((category) => {
+                          const Icon = getIcon(category.icon);
+                          return (
+                            <CommandItem
+                              value={category.label}
+                              key={category.value}
+                              onSelect={() => {
+                                form.setValue("category", category.value)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  category.value === field.value
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                              {category.label}
+                            </CommandItem>
+                          );
+                        })}
                       </CommandGroup>
                     </CommandList>
                   </Command>

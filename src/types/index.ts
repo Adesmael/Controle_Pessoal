@@ -18,7 +18,7 @@ export interface Transaction {
 export interface ExpenseCategory {
   value: string;
   label: string;
-  icon: LucideIcon;
+  icon: string; // Changed from LucideIcon to string name for storage
 }
 
 export interface IncomeSource {

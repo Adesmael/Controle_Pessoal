@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
 import { Label } from '@/components/ui/label';
-import { DollarSign, DownloadCloud, UploadCloud, AlertTriangle, Share2 } from 'lucide-react';
+import { DollarSign, UploadCloud, AlertTriangle, Share2, List } from 'lucide-react';
 import { getStoredTransactions, storeTransactions } from '@/lib/transactionStorage';
 import type { Transaction } from '@/types';
 import {
@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import Link from 'next/link';
 
 export default function SettingsPage() {
   const [goal, setGoal] = useState<string>('');
@@ -293,6 +294,25 @@ export default function SettingsPage() {
           </div>
           <Button onClick={handleSaveGoal} className="w-full sm:w-auto">
             Salvar Meta de Gastos
+          </Button>
+        </CardContent>
+      </Card>
+      
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-xl flex items-center">
+            <List className="mr-2 h-5 w-5 text-blue-500" />
+            Gerenciar Categorias
+          </CardTitle>
+          <CardDescription>
+            Adicione ou remova categorias de despesas para personalizar o aplicativo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/settings/categories">
+              Gerenciar Categorias
+            </Link>
           </Button>
         </CardContent>
       </Card>

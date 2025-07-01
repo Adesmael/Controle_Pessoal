@@ -2,16 +2,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import type { Transaction, TransactionType } from '@/types';
+import type { Transaction, TransactionType, ExpenseCategory } from '@/types';
 import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
-// import DailyTransactionChart from '@/components/charts/DailyTransactionChart'; // Removido
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CURRENCY_SYMBOL, EXPENSE_CATEGORIES } from '@/lib/constants';
+import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { TrendingUp, TrendingDown, Activity, Loader2, FileSpreadsheet, CalendarIcon, FilterX, Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +21,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
 import { getStoredTransactions } from '@/lib/transactionStorage';
+import { getStoredExpenseCategories } from '@/lib/categoryStorage';
+import { getIcon } from '@/lib/iconMap';
 
 const typeFilterOptions = [
   { value: 'all', label: 'Todas' },
@@ -31,6 +32,7 @@ const typeFilterOptions = [
 
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [displayedTransactions, setDisplayedTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -40,19 +42,20 @@ export default function ReportsPage() {
   const [selectedType, setSelectedType] = useState<TransactionType | 'all' | undefined>('all');
   
   useEffect(() => {
-    function loadTransactions() {
+    function loadData() {
       setLoading(true);
-      const stored = getStoredTransactions();
-      setAllTransactions(stored.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setDisplayedTransactions(stored); // Initially display all
+      const storedTransactions = getStoredTransactions();
+      const storedCategories = getStoredExpenseCategories();
+      setAllTransactions(storedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setDisplayedTransactions(storedTransactions);
+      setExpenseCategories(storedCategories);
       setLoading(false);
     }
-    loadTransactions();
+    loadData();
 
-     // Listener for storage changes to update transactions
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'financialApp_transactions') {
-        loadTransactions();
+      if (event.key === 'financialApp_transactions' || event.key === 'financialApp_expense_categories') {
+        loadData();
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -82,7 +85,7 @@ export default function ReportsPage() {
     }
     
     if (selectedCategory) {
-      const categoryLabel = EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
+      const categoryLabel = expenseCategories.find(cat => cat.value === selectedCategory)?.label || selectedCategory;
       descriptionText += `${filtersApplied ? '. ' : 'Exibindo transações locais '}Despesas por: ${categoryLabel}`;
       filtersApplied = true;
     }
@@ -95,7 +98,7 @@ export default function ReportsPage() {
 
 
     return descriptionText;
-  }, [startDate, endDate, selectedCategory, selectedType, displayedTransactions, allTransactions]);
+  }, [startDate, endDate, selectedCategory, selectedType, displayedTransactions, allTransactions, expenseCategories]);
 
 
   const summary = useMemo(() => {
@@ -128,14 +131,11 @@ export default function ReportsPage() {
     }
 
     if (selectedCategory) {
-      // If filtering by category, implicitly we are only interested in expenses for that category
-      // unless the type is also 'all' or 'expense'. If type is 'income', category filter shouldn't apply to income.
       if (selectedType === 'all' || selectedType === 'expense') {
         filtered = filtered.filter(t => {
             if (t.type === 'expense') {
                 return t.category === selectedCategory;
             }
-            // If type is 'all', keep incomes. If type is 'expense', incomes are already filtered out.
             return selectedType === 'all' ? true : false; 
         });
       }
@@ -173,7 +173,7 @@ export default function ReportsPage() {
       'Descrição': transaction.description,
       'Tipo': transaction.type === 'income' ? 'Receita' : 'Despesa',
       'Categoria/Fonte': transaction.type === 'expense'
-        ? (EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
+        ? (expenseCategories.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
         : (transaction.source || '-'),
       'Valor': transaction.amount
     }));
@@ -207,11 +207,6 @@ export default function ReportsPage() {
       </div>
     );
   }
-
-  const getCategoryIcon = (categoryValue?: string) => {
-    const category = EXPENSE_CATEGORIES.find(cat => cat.value === categoryValue);
-    return category ? <category.icon className="h-4 w-4 mr-1 inline-block text-muted-foreground" /> : null;
-  };
   
   return (
     <div className="space-y-8">
@@ -344,10 +339,10 @@ export default function ReportsPage() {
                             "w-full justify-between",
                             !selectedCategory && "text-muted-foreground"
                             )}
-                            disabled={selectedType === 'income'} // Disable if only income is selected
+                            disabled={selectedType === 'income'}
                         >
                             {selectedCategory
-                            ? EXPENSE_CATEGORIES.find(cat => cat.value === selectedCategory)?.label
+                            ? expenseCategories.find(cat => cat.value === selectedCategory)?.label
                             : "Todas as categorias"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
@@ -375,26 +370,29 @@ export default function ReportsPage() {
                                 />
                                 Todas as categorias
                                 </CommandItem>
-                                {EXPENSE_CATEGORIES.map((category) => (
-                                <CommandItem
-                                    value={category.label}
-                                    key={category.value}
-                                    onSelect={() => {
-                                      setSelectedCategory(category.value);
-                                      const combobox = document.activeElement;
-                                      if (combobox) (combobox as HTMLElement).blur();
-                                    }}
-                                >
-                                    <Check
-                                    className={cn(
-                                        "mr-2 h-4 w-4",
-                                        category.value === selectedCategory ? "opacity-100" : "opacity-0"
-                                    )}
-                                    />
-                                    <category.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                                    {category.label}
-                                </CommandItem>
-                                ))}
+                                {expenseCategories.map((category) => {
+                                  const Icon = getIcon(category.icon);
+                                  return (
+                                    <CommandItem
+                                      value={category.label}
+                                      key={category.value}
+                                      onSelect={() => {
+                                        setSelectedCategory(category.value);
+                                        const combobox = document.activeElement;
+                                        if (combobox) (combobox as HTMLElement).blur();
+                                      }}
+                                    >
+                                      <Check
+                                      className={cn(
+                                          "mr-2 h-4 w-4",
+                                          category.value === selectedCategory ? "opacity-100" : "opacity-0"
+                                      )}
+                                      />
+                                      <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                      {category.label}
+                                    </CommandItem>
+                                  );
+                                })}
                             </CommandGroup>
                             </CommandList>
                         </Command>
@@ -414,7 +412,7 @@ export default function ReportsPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <IncomeExpenseChart transactions={displayedTransactions} />
-        <ExpenseBreakdownChart expenses={displayedTransactions.filter(t => t.type === 'expense')} />
+        <ExpenseBreakdownChart expenses={displayedTransactions.filter(t => t.type === 'expense')} categories={expenseCategories} />
       </div>
 
       <Card>
@@ -444,28 +442,32 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayedTransactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                      <TableCell className="font-medium">{transaction.description}</TableCell>
-                      <TableCell>
-                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          transaction.type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                         }`}>
-                          {transaction.type === 'income' ? 'Receita' : 'Despesa'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="flex items-center">
-                        {transaction.type === 'expense' ? getCategoryIcon(transaction.category) : null}
-                        {transaction.type === 'expense'
-                          ? (EXPENSE_CATEGORIES.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
-                          : (transaction.source || '-')}
-                      </TableCell>
-                      <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? 'text-primary' : 'text-destructive'}`}>
-                        {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {displayedTransactions.map((transaction) => {
+                    const category = expenseCategories.find(cat => cat.value === transaction.category);
+                    const Icon = getIcon(category?.icon);
+                    return (
+                      <TableRow key={transaction.id}>
+                        <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                        <TableCell className="font-medium">{transaction.description}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            transaction.type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                          }`}>
+                            {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="flex items-center">
+                          {transaction.type === 'expense' && <Icon className="h-4 w-4 mr-1 inline-block text-muted-foreground" />}
+                          {transaction.type === 'expense'
+                            ? (category?.label || transaction.category || '-')
+                            : (transaction.source || '-')}
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? 'text-primary' : 'text-destructive'}`}>
+                          {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

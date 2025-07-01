@@ -4,12 +4,12 @@
 import { useState, useEffect } from 'react';
 import ExpenseForm from '@/components/forms/ExpenseForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { Transaction } from '@/types';
+import type { Transaction, ExpenseCategory } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
+import { CURRENCY_SYMBOL } from '@/lib/constants';
 import Image from 'next/image';
 import { Trash2, Loader2 } from 'lucide-react';
 import {
@@ -24,20 +24,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { getStoredTransactions, addStoredTransaction, deleteStoredTransaction } from '@/lib/transactionStorage';
+import { getStoredExpenseCategories } from '@/lib/categoryStorage';
+import { getIcon } from '@/lib/iconMap';
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Transaction[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadExpenses = () => {
+    const loadData = () => {
       const allTransactions = getStoredTransactions();
       setExpenses(allTransactions.filter(tx => tx.type === 'expense').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setExpenseCategories(getStoredExpenseCategories());
       setLoading(false);
     };
-    loadExpenses();
+    loadData();
+    
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'financialApp_transactions' || event.key === 'financialApp_expense_categories') {
+        loadData();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
   
   const handleExpenseAdded = (newExpenseData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
@@ -89,12 +101,6 @@ export default function ExpensesPage() {
     );
   }
 
-  const getCategoryIcon = (categoryValue?: string) => {
-    const category = EXPENSE_CATEGORIES.find(cat => cat.value === categoryValue);
-    return category ? <category.icon className="h-5 w-5 mr-2 inline-block text-muted-foreground" /> : null;
-  };
-
-
   return (
     <div className="space-y-8">
       <div>
@@ -130,24 +136,28 @@ export default function ExpensesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.map((expense) => ( 
-                    <TableRow key={expense.id}>
-                      <TableCell className="font-medium">{expense.description}</TableCell>
-                      <TableCell className="flex items-center">
-                        {getCategoryIcon(expense.category)}
-                        {EXPENSE_CATEGORIES.find(cat => cat.value === expense.category)?.label || expense.category || '-'}
-                      </TableCell>
-                      <TableCell className="text-destructive"> 
-                        {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                      <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {expenses.map((expense) => {
+                    const category = expenseCategories.find(cat => cat.value === expense.category);
+                    const Icon = getIcon(category?.icon);
+                    return (
+                      <TableRow key={expense.id}>
+                        <TableCell className="font-medium">{expense.description}</TableCell>
+                        <TableCell className="flex items-center">
+                          <Icon className="h-5 w-5 mr-2 inline-block text-muted-foreground" />
+                          {category?.label || expense.category || '-'}
+                        </TableCell>
+                        <TableCell className="text-destructive"> 
+                          {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                        <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

@@ -1,13 +1,15 @@
+
 'use client';
 
 import { Pie, PieChart, ResponsiveContainer, Tooltip, Legend, Cell } from 'recharts';
-import type { Transaction } from '@/types';
-import { EXPENSE_CATEGORIES, CURRENCY_SYMBOL } from '@/lib/constants';
+import type { Transaction, ExpenseCategory } from '@/types';
+import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Image from 'next/image';
 
 interface ExpenseBreakdownChartProps {
   expenses: Transaction[];
+  categories: ExpenseCategory[];
 }
 
 const COLORS = [
@@ -20,13 +22,13 @@ const COLORS = [
 ];
 
 
-export default function ExpenseBreakdownChart({ expenses }: ExpenseBreakdownChartProps) {
-  const data = EXPENSE_CATEGORIES.map((category, index) => {
+export default function ExpenseBreakdownChart({ expenses, categories }: ExpenseBreakdownChartProps) {
+  const data = categories.map((category, index) => {
     const total = expenses
       .filter((e) => e.category === category.value)
       .reduce((sum, e) => sum + e.amount, 0);
     return {
-      name: category.label, // Already translated from constants
+      name: category.label,
       value: total,
       fill: COLORS[index % COLORS.length],
     };
