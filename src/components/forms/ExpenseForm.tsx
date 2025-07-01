@@ -82,7 +82,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
     form.reset();
     form.setValue('amount', '' as unknown as number);
     form.setValue('date', new Date());
-    form.setValue('category', undefined);
+    form.setValue('category', '');
     form.setValue('description', '');
     form.setValue('expenseSubtype', 'variable');
   }
