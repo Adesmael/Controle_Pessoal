@@ -20,10 +20,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { INCOME_SOURCES, CURRENCY_SYMBOL } from '@/lib/constants';
-import type { Transaction } from '@/types';
+import { CURRENCY_SYMBOL } from '@/lib/constants';
+import type { Transaction, IncomeSource } from '@/types';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getStoredIncomeSources } from '@/lib/incomeSourceStorage';
 
 const formSchema = z.object({
   description: z.string().min(2, { message: 'A descrição deve ter pelo menos 2 caracteres.' }).max(100),
@@ -39,6 +40,22 @@ interface IncomeFormProps {
 }
 
 export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
+  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
+
+  useEffect(() => {
+    setIncomeSources(getStoredIncomeSources());
+  
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'financialApp_income_sources') {
+        setIncomeSources(getStoredIncomeSources());
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   const form = useForm<IncomeFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -146,7 +163,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
                       )}
                     >
                       {field.value
-                        ? INCOME_SOURCES.find(
+                        ? incomeSources.find(
                             (source) => source.value === field.value
                           )?.label
                         : "Selecione a fonte"}
@@ -160,7 +177,7 @@ export default function IncomeForm({ onIncomeAdded }: IncomeFormProps) {
                     <CommandList>
                       <CommandEmpty>Nenhuma fonte encontrada.</CommandEmpty>
                       <CommandGroup>
-                        {INCOME_SOURCES.map((source) => (
+                        {incomeSources.map((source) => (
                           <CommandItem
                             value={source.label}
                             key={source.value}

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
 import { Label } from '@/components/ui/label';
-import { DollarSign, UploadCloud, AlertTriangle, Share2, List } from 'lucide-react';
+import { DollarSign, UploadCloud, AlertTriangle, Share2, List, Landmark } from 'lucide-react';
 import { getStoredTransactions, storeTransactions } from '@/lib/transactionStorage';
 import type { Transaction } from '@/types';
 import {
@@ -302,7 +302,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="font-headline text-xl flex items-center">
             <List className="mr-2 h-5 w-5 text-blue-500" />
-            Gerenciar Categorias
+            Gerenciar Categorias de Despesa
           </CardTitle>
           <CardDescription>
             Adicione ou remova categorias de despesas para personalizar o aplicativo.
@@ -312,6 +312,25 @@ export default function SettingsPage() {
           <Button asChild className="w-full sm:w-auto">
             <Link href="/settings/categories">
               Gerenciar Categorias
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-xl flex items-center">
+            <Landmark className="mr-2 h-5 w-5 text-purple-500" />
+            Gerenciar Fontes de Receita
+          </CardTitle>
+          <CardDescription>
+            Adicione ou remova fontes de receita para personalizar seus registros.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/settings/income-sources">
+              Gerenciar Fontes de Receita
             </Link>
           </Button>
         </CardContent>
