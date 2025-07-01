@@ -72,7 +72,7 @@ export default function RootLayout({
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Registrar Despesa">
                     <Link href="/expenses">
-                      <TrendingDown className="text-red-600 dark:text-red-500" />
+                      <TrendingDown className="text-destructive" />
                       <span>Despesas</span>
                     </Link>
                   </SidebarMenuButton>

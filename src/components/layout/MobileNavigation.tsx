@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 const navItems = [
   { href: '/', label: 'Painel', icon: LayoutDashboard, colorClass: 'text-sky-600 dark:text-sky-500' },
   { href: '/income', label: 'Receitas', icon: TrendingUp, colorClass: 'text-blue-600 dark:text-blue-500' },
-  { href: '/expenses', label: 'Despesas', icon: TrendingDown, colorClass: 'text-red-600 dark:text-red-500' },
+  { href: '/expenses', label: 'Despesas', icon: TrendingDown, colorClass: 'text-destructive' },
   { href: '/reports', label: 'Relatórios', icon: BarChart3, colorClass: 'text-emerald-600 dark:text-emerald-500' },
   { href: '/logs', label: 'Histórico', icon: History, colorClass: 'text-orange-500 dark:text-orange-400' },
   { href: '/settings', label: 'Ajustes', icon: Settings, colorClass: 'text-violet-600 dark:text-violet-500' },

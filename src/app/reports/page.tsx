@@ -590,7 +590,7 @@ export default function ReportsPage() {
                         <TableCell className="font-medium">{transaction.description}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            transaction.type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                            transaction.type === 'income' ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'
                           }`}>
                             {transaction.type === 'income' ? 'Receita' : 'Despesa'}
                           </span>
