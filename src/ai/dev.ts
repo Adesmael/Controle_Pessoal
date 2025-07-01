@@ -1,7 +1,7 @@
-
 // Flows will be imported for their side effects in this file.
-// import '@/ai/flows/financial-trend-flow'; // Removido pois dependia de dados do Supabase
+// Example: import '@/ai/flows/my-flow';
 
-// Tools will also be imported for their side effects (registration)
-// Nenhuma ferramenta ativa no momento
-    
+// Tools will also be imported for their side effects (registration).
+// Example: import '@/ai/tools/my-tool';
+
+// No active AI flows or tools are currently configured.
