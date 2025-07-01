@@ -5,7 +5,6 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Transaction, TransactionType, ExpenseCategory, ExpenseSubtype, IncomeSource } from '@/types';
 import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
-import BalanceHistoryChart from '@/components/charts/BalanceHistoryChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -552,8 +551,6 @@ export default function ReportsPage() {
         <IncomeExpenseChart transactions={displayedTransactions} />
         <ExpenseBreakdownChart expenses={displayedTransactions.filter(t => t.type === 'expense')} categories={expenseCategories} />
       </div>
-
-      <BalanceHistoryChart transactions={displayedTransactions} />
 
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
