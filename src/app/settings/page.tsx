@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Link from 'next/link';
+import { addLog } from '@/lib/logStorage';
 
 export default function SettingsPage() {
   const [goal, setGoal] = useState<string>('');
@@ -66,6 +67,16 @@ export default function SettingsPage() {
       });
       return;
     }
+    
+    if (currentGoal !== numericGoal) {
+      const goalFormatted = `${CURRENCY_SYMBOL}${numericGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      addLog({
+        action: 'UPDATE',
+        entity: 'GOAL',
+        description: `Meta de gastos mensais alterada para ${goalFormatted}.`,
+      });
+    }
+
     localStorage.setItem(MONTHLY_SPENDING_GOAL_KEY, numericGoal.toString());
     setCurrentGoal(numericGoal);
     toast({
@@ -92,6 +103,12 @@ export default function SettingsPage() {
 
   const handleExportBackup = async () => {
     try {
+      addLog({
+        action: 'EXPORT',
+        entity: 'DATA',
+        description: 'Backup de dados foi exportado.',
+      });
+
       const transactions = getStoredTransactions();
       const storedMonthlyGoal = localStorage.getItem(MONTHLY_SPENDING_GOAL_KEY);
       let monthlyGoalValue = null;
@@ -236,6 +253,12 @@ export default function SettingsPage() {
             localStorage.setItem(MONTHLY_SPENDING_GOAL_KEY, backupToImport.monthlyGoal.toString());
           }
         } 
+
+        addLog({
+          action: 'IMPORT',
+          entity: 'DATA',
+          description: `Backup de dados importado. ${newTransactionsFromBackup.length} novas transações adicionadas.`,
+        });
 
         toast({
           title: "Backup Importado!",

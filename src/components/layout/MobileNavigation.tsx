@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, TrendingDown, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, TrendingDown, BarChart3, Settings, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/income', label: 'Receitas', icon: TrendingUp, colorClass: 'text-blue-600 dark:text-blue-500' },
   { href: '/expenses', label: 'Despesas', icon: TrendingDown, colorClass: 'text-red-600 dark:text-red-500' },
   { href: '/reports', label: 'Relatórios', icon: BarChart3, colorClass: 'text-emerald-600 dark:text-emerald-500' },
+  { href: '/logs', label: 'Histórico', icon: History, colorClass: 'text-orange-500 dark:text-orange-400' },
   { href: '/settings', label: 'Ajustes', icon: Settings, colorClass: 'text-violet-600 dark:text-violet-500' },
 ];
 

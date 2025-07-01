@@ -7,6 +7,7 @@ import {
   TrendingDown,
   BarChart3,
   Settings,
+  History,
 } from 'lucide-react';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -81,6 +82,14 @@ export default function RootLayout({
                     <Link href="/reports">
                       <BarChart3 className="text-emerald-600 dark:text-emerald-500" />
                       <span>Relatórios</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Histórico de Atividades">
+                    <Link href="/logs">
+                      <History className="text-orange-500 dark:text-orange-400" />
+                      <span>Histórico</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -2,6 +2,8 @@
 'use client';
 
 import type { Transaction } from '@/types';
+import { addLog } from './logStorage';
+import { CURRENCY_SYMBOL } from './constants';
 
 const TRANSACTIONS_STORAGE_KEY = 'financialApp_transactions';
 
@@ -70,6 +72,15 @@ export function addStoredTransaction(
     };
     const updatedTransactions = [...existingTransactions, newTransaction];
     storeTransactions(updatedTransactions);
+
+    const typeText = type === 'income' ? 'Receita' : 'Despesa';
+    const amountFormatted = `${CURRENCY_SYMBOL}${newTransaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    addLog({
+      action: 'CREATE',
+      entity: 'TRANSACTION',
+      description: `${typeText} "${newTransaction.description}" (${amountFormatted}) foi adicionada.`,
+    });
+
     return newTransaction;
   } catch (error) {
     console.error('Error adding transaction to localStorage:', error);
@@ -88,8 +99,23 @@ export function deleteStoredTransaction(transactionId: string): boolean {
   }
   try {
     const existingTransactions = getStoredTransactions();
+    const transactionToDelete = existingTransactions.find(tx => tx.id === transactionId);
+
+    if (!transactionToDelete) {
+      return false;
+    }
+
     const updatedTransactions = existingTransactions.filter(tx => tx.id !== transactionId);
     storeTransactions(updatedTransactions);
+
+    const typeText = transactionToDelete.type === 'income' ? 'Receita' : 'Despesa';
+    const amountFormatted = `${CURRENCY_SYMBOL}${transactionToDelete.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    addLog({
+      action: 'DELETE',
+      entity: 'TRANSACTION',
+      description: `${typeText} "${transactionToDelete.description}" (${amountFormatted}) foi excluída.`,
+    });
+    
     return true;
   } catch (error) {
     console.error('Error deleting transaction from localStorage:', error);

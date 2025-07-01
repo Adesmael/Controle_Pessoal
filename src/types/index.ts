@@ -27,3 +27,14 @@ export interface IncomeSource {
   value: string;
   label: string;
 }
+
+export type LogAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'EXPORT' | 'IMPORT';
+export type LogEntity = 'TRANSACTION' | 'CATEGORY' | 'SOURCE' | 'GOAL' | 'DATA';
+
+export interface Log {
+  id: string;
+  timestamp: string; // ISO String
+  action: LogAction;
+  entity: LogEntity;
+  description: string;
+}

@@ -3,6 +3,7 @@
 
 import type { IncomeSource } from '@/types';
 import { DEFAULT_INCOME_SOURCES, INCOME_SOURCES_STORAGE_KEY } from '@/lib/constants';
+import { addLog } from './logStorage';
 
 export function getStoredIncomeSources(): IncomeSource[] {
   if (typeof window === 'undefined') {
@@ -50,18 +51,35 @@ export function addStoredIncomeSource(label: string): { success: boolean, messag
 
   const updatedSources = [...sources, newSource];
   storeIncomeSources(updatedSources);
+
+  addLog({
+    action: 'CREATE',
+    entity: 'SOURCE',
+    description: `Fonte de receita "${newSource.label}" foi criada.`,
+  });
+
   return { success: true, message: 'Fonte de receita adicionada com sucesso!' };
 }
 
 export function deleteStoredIncomeSource(value: string): boolean {
   try {
     const sources = getStoredIncomeSources();
+    const sourceToDelete = sources.find(src => src.value === value);
+    if (!sourceToDelete) return false;
+
     const updatedSources = sources.filter(src => src.value !== value);
     if (updatedSources.length === sources.length) {
       // Nothing was deleted
       return false;
     }
     storeIncomeSources(updatedSources);
+
+    addLog({
+      action: 'DELETE',
+      entity: 'SOURCE',
+      description: `Fonte de receita "${sourceToDelete.label}" foi excluída.`,
+    });
+    
     return true;
   } catch (error) {
     console.error('Error deleting source:', error);

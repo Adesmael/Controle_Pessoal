@@ -3,6 +3,7 @@
 
 import type { ExpenseCategory } from '@/types';
 import { DEFAULT_EXPENSE_CATEGORIES, EXPENSE_CATEGORIES_STORAGE_KEY } from '@/lib/constants';
+import { addLog } from './logStorage';
 
 export function getStoredExpenseCategories(): ExpenseCategory[] {
   if (typeof window === 'undefined') {
@@ -51,18 +52,35 @@ export function addStoredExpenseCategory(label: string): { success: boolean, mes
 
   const updatedCategories = [...categories, newCategory];
   storeExpenseCategories(updatedCategories);
+
+  addLog({
+    action: 'CREATE',
+    entity: 'CATEGORY',
+    description: `Categoria de despesa "${newCategory.label}" foi criada.`,
+  });
+
   return { success: true, message: 'Categoria adicionada com sucesso!' };
 }
 
 export function deleteStoredExpenseCategory(value: string): boolean {
   try {
     const categories = getStoredExpenseCategories();
+    const categoryToDelete = categories.find(cat => cat.value === value);
+    if (!categoryToDelete) return false;
+
     const updatedCategories = categories.filter(cat => cat.value !== value);
     if (updatedCategories.length === categories.length) {
       // Nothing was deleted
       return false;
     }
     storeExpenseCategories(updatedCategories);
+
+    addLog({
+      action: 'DELETE',
+      entity: 'CATEGORY',
+      description: `Categoria de despesa "${categoryToDelete.label}" foi excluída.`,
+    });
+
     return true;
   } catch (error) {
     console.error('Error deleting category:', error);
