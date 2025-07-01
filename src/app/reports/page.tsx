@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import type { Transaction, TransactionType, ExpenseCategory, ExpenseSubtype } from '@/types';
+import type { Transaction, TransactionType, ExpenseCategory, ExpenseSubtype, IncomeSource } from '@/types';
 import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from '@/lib/utils';
 import { getStoredTransactions } from '@/lib/transactionStorage';
 import { getStoredExpenseCategories } from '@/lib/categoryStorage';
+import { getStoredIncomeSources } from '@/lib/incomeSourceStorage';
 import { getIcon } from '@/lib/iconMap';
 
 const typeFilterOptions = [
@@ -40,12 +41,14 @@ const expenseSubtypeFilterOptions = [
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [displayedTransactions, setDisplayedTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [selectedSource, setSelectedSource] = useState<string | undefined>(undefined);
   const [selectedType, setSelectedType] = useState<TransactionType | 'all' | undefined>('all');
   const [selectedExpenseSubtype, setSelectedExpenseSubtype] = useState<ExpenseSubtype | 'all' | undefined>('all');
   
@@ -54,15 +57,17 @@ export default function ReportsPage() {
       setLoading(true);
       const storedTransactions = getStoredTransactions();
       const storedCategories = getStoredExpenseCategories();
+      const storedSources = getStoredIncomeSources();
       setAllTransactions(storedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setDisplayedTransactions(storedTransactions);
       setExpenseCategories(storedCategories);
+      setIncomeSources(storedSources);
       setLoading(false);
     }
     loadData();
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'financialApp_transactions' || event.key === 'financialApp_expense_categories') {
+      if (event.key === 'financialApp_transactions' || event.key === 'financialApp_expense_categories' || event.key === 'financialApp_income_sources') {
         loadData();
       }
     };
@@ -95,6 +100,11 @@ export default function ReportsPage() {
       filtersApplied.push(`Categoria: ${categoryLabel}`);
     }
 
+    if (selectedSource) {
+      const sourceLabel = incomeSources.find(src => src.value === selectedSource)?.label || selectedSource;
+      filtersApplied.push(`Fonte: ${sourceLabel}`);
+    }
+
     if (selectedExpenseSubtype && selectedExpenseSubtype !== 'all' && selectedType !== 'income') {
       const subtypeLabel = expenseSubtypeFilterOptions.find(opt => opt.value === selectedExpenseSubtype)?.label || '';
       filtersApplied.push(`Despesas do tipo: ${subtypeLabel}`);
@@ -112,7 +122,7 @@ export default function ReportsPage() {
 
 
     return descriptionText;
-  }, [startDate, endDate, selectedCategory, selectedType, selectedExpenseSubtype, displayedTransactions.length, allTransactions.length, expenseCategories]);
+  }, [startDate, endDate, selectedCategory, selectedSource, selectedType, selectedExpenseSubtype, displayedTransactions.length, allTransactions.length, expenseCategories, incomeSources]);
 
 
   const summary = useMemo(() => {
@@ -155,6 +165,17 @@ export default function ReportsPage() {
       }
     }
 
+    if (selectedSource) {
+      if (selectedType === 'all' || selectedType === 'income') {
+        filtered = filtered.filter(t => {
+            if (t.type === 'income') {
+                return t.source === selectedSource;
+            }
+            return selectedType === 'all' ? true : false;
+        });
+      }
+    }
+
     if (selectedExpenseSubtype && selectedExpenseSubtype !== 'all') {
        if (selectedType === 'all' || selectedType === 'expense') {
          filtered = filtered.filter(t => {
@@ -180,6 +201,7 @@ export default function ReportsPage() {
     setStartDate(undefined);
     setEndDate(undefined);
     setSelectedCategory(undefined);
+    setSelectedSource(undefined);
     setSelectedType('all');
     setSelectedExpenseSubtype('all');
     setDisplayedTransactions(allTransactions); 
@@ -280,7 +302,7 @@ export default function ReportsPage() {
           <CardTitle className="font-headline text-lg">Filtrar Transações</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                 <div className="grid gap-2 w-full">
                     <label htmlFor="startDate" className="text-sm font-medium">Data Inicial</label>
                     <Popover>
@@ -446,6 +468,74 @@ export default function ReportsPage() {
                         </PopoverContent>
                     </Popover>
                 </div>
+                <div className="grid gap-2 w-full">
+                    <label htmlFor="sourceFilter" className="text-sm font-medium">Fonte da Receita</label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            id="sourceFilter"
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                            "w-full justify-between",
+                            !selectedSource && "text-muted-foreground"
+                            )}
+                            disabled={selectedType === 'expense'}
+                        >
+                            {selectedSource
+                            ? incomeSources.find(src => src.value === selectedSource)?.label
+                            : "Todas as fontes"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                        <Command>
+                            <CommandInput placeholder="Buscar fonte..." />
+                            <CommandList>
+                            <CommandEmpty>Nenhuma fonte encontrada.</CommandEmpty>
+                            <CommandGroup>
+                                <CommandItem
+                                key="all-sources"
+                                value="all-sources"
+                                onSelect={() => {
+                                    const combobox = document.activeElement;
+                                    if (combobox) (combobox as HTMLElement).blur();
+                                    setSelectedSource(undefined);
+                                }}
+                                >
+                                <Check
+                                    className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !selectedSource ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                Todas as fontes
+                                </CommandItem>
+                                {incomeSources.map((source) => (
+                                    <CommandItem
+                                      value={source.label}
+                                      key={source.value}
+                                      onSelect={() => {
+                                        setSelectedSource(source.value);
+                                        const combobox = document.activeElement;
+                                        if (combobox) (combobox as HTMLElement).blur();
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            source.value === selectedSource ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {source.label}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                            </CommandList>
+                        </Command>
+                        </PopoverContent>
+                    </Popover>
+                </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <Button onClick={applyFilters} className="w-full sm:w-auto">Aplicar Filtros</Button>
@@ -492,6 +582,7 @@ export default function ReportsPage() {
                 <TableBody>
                   {displayedTransactions.map((transaction) => {
                     const category = expenseCategories.find(cat => cat.value === transaction.category);
+                    const source = incomeSources.find(src => src.value === transaction.source);
                     const Icon = getIcon(category?.icon);
                     return (
                       <TableRow key={transaction.id}>
@@ -515,7 +606,7 @@ export default function ReportsPage() {
                           {transaction.type === 'expense' && <Icon className="h-4 w-4 mr-1 inline-block text-muted-foreground" />}
                           {transaction.type === 'expense'
                             ? (category?.label || transaction.category || '-')
-                            : (transaction.source || '-')}
+                            : (source?.label || transaction.source || '-')}
                         </TableCell>
                         <TableCell className={`text-right font-semibold ${transaction.type === 'income' ? 'text-primary' : 'text-destructive'}`}>
                           {transaction.type === 'income' ? '+' : '-'}{CURRENCY_SYMBOL}{Number(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -537,3 +628,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+
