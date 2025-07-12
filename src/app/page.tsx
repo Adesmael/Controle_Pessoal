@@ -5,10 +5,10 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, Edit3, Target } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, Edit3, Target, CalendarDays } from 'lucide-react';
 import type { Transaction } from '@/types';
 import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
-import { format, isValid, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { format, isValid, startOfMonth, endOfMonth, isWithinInterval, differenceInCalendarDays, getDate } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from 'next/image';
@@ -92,6 +92,13 @@ export default function DashboardPage() {
     .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
 
   const balance = useMemo(() => totalIncome - totalExpenses, [totalIncome, totalExpenses]);
+
+  const averageDailyExpense = useMemo(() => {
+    if (currentMonthExpenses === 0) return 0;
+    const today = new Date();
+    const daysInMonthSoFar = getDate(today);
+    return currentMonthExpenses / daysInMonthSoFar;
+  }, [currentMonthExpenses]);
 
   const getGoalProgress = () => {
     if (monthlyGoal === null || monthlyGoal <= 0) return 0;
@@ -179,10 +186,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-headline font-bold text-base">Receita Total</CardTitle>
+            <CardTitle className="font-headline font-bold text-sm">Receita Total</CardTitle>
             <TrendingUp className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
@@ -192,7 +199,7 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-headline font-bold text-base">Despesa Total</CardTitle>
+            <CardTitle className="font-headline font-bold text-sm">Despesa Total</CardTitle>
             <TrendingDown className="h-5 w-5 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -202,7 +209,7 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-headline font-bold text-base">Saldo Atual</CardTitle>
+            <CardTitle className="font-headline font-bold text-sm">Saldo Atual</CardTitle>
             <Activity className="h-5 w-5 text-accent" />
           </CardHeader>
           <CardContent>
@@ -210,6 +217,16 @@ export default function DashboardPage() {
               {CURRENCY_SYMBOL}{balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             {transactions.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma transação registrada</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-headline font-bold text-sm">Despesa Média Diária</CardTitle>
+            <CalendarDays className="h-5 w-5 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-body text-yellow-600">{CURRENCY_SYMBOL}{averageDailyExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">Média para o mês atual</p>
           </CardContent>
         </Card>
       </div>

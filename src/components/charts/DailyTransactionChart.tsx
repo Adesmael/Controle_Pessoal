@@ -83,7 +83,7 @@ export default function DailyTransactionChart({ transactions }: DailyTransaction
             <Bar dataKey="Receita" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name="Receita">
               <LabelList dataKey="Receita" position="top" formatter={ValueFormatter} fontSize={11} fill="hsl(var(--foreground))" fontWeight="bold" />
             </Bar>
-            <Bar dataKey="Despesas" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name="Despesas">
+            <Bar dataKey="Despesas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Despesas">
               <LabelList dataKey="Despesas" position="top" formatter={ValueFormatter} fontSize={11} fill="hsl(var(--foreground))" fontWeight="bold" />
             </Bar>
           </BarChart>
