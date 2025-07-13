@@ -6,6 +6,7 @@ import type { Transaction, TransactionType, ExpenseCategory, ExpenseSubtype, Inc
 import ExpenseBreakdownChart from '@/components/charts/ExpenseBreakdownChart';
 import IncomeExpenseChart from '@/components/charts/IncomeExpenseChart';
 import DailyTransactionChart from '@/components/charts/DailyTransactionChart';
+import MonthlyComparisonChart from '@/components/charts/MonthlyComparisonChart'; // Importando o novo gráfico
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -547,6 +548,10 @@ export default function ReportsPage() {
             </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-6">
+        <MonthlyComparisonChart transactions={displayedTransactions} />
+      </div>
       
       <div className="grid gap-6">
          <DailyTransactionChart transactions={displayedTransactions} />
@@ -633,3 +638,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
