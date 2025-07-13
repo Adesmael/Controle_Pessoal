@@ -140,3 +140,5 @@ export default function IncomeExpenseChart({ transactions }: IncomeExpenseChartP
     </Card>
   );
 }
+
+    

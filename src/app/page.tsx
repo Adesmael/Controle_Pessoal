@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, Edit3, Target, CalendarDays } from 'lucide-react';
+import { PlusCircle, TrendingUp, TrendingDown, Activity, Loader2, Edit3, Target, CalendarDays, BarChartHorizontal } from 'lucide-react';
 import type { Transaction } from '@/types';
 import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
 import { format, isValid, startOfMonth, endOfMonth, isWithinInterval, differenceInCalendarDays, getDate } from 'date-fns';
@@ -23,6 +23,7 @@ export default function DashboardPage() {
 
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [currentMonthExpenses, setCurrentMonthExpenses] = useState<number>(0);
+  const [currentMonthIncome, setCurrentMonthIncome] = useState<number>(0);
 
   const alert85DispatchedRef = useRef(false);
   const alert100DispatchedRef = useRef(false);
@@ -65,10 +66,10 @@ export default function DashboardPage() {
   }, []);
   
   useEffect(() => {
-    calculateCurrentMonthExpenses(); 
+    calculateCurrentMonthMetrics(); 
   }, [transactions, monthlyGoal]); // Recalculate when transactions or goal change
 
-  function calculateCurrentMonthExpenses() {
+  function calculateCurrentMonthMetrics() {
     const today = new Date();
     const firstDayOfMonth = startOfMonth(today);
     const lastDayOfMonth = endOfMonth(today);
@@ -81,6 +82,15 @@ export default function DashboardPage() {
       )
       .reduce((sum, t) => sum + Number(t.amount), 0);
     setCurrentMonthExpenses(expensesThisMonth);
+
+     const incomeThisMonth = transactions
+      .filter(t => 
+        t.type === 'income' && 
+        isValid(new Date(t.date)) &&
+        isWithinInterval(new Date(t.date), { start: firstDayOfMonth, end: lastDayOfMonth })
+      )
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    setCurrentMonthIncome(incomeThisMonth);
   }
   
   const totalIncome = useMemo(() => transactions
@@ -93,12 +103,17 @@ export default function DashboardPage() {
 
   const balance = useMemo(() => totalIncome - totalExpenses, [totalIncome, totalExpenses]);
 
-  const averageDailyExpense = useMemo(() => {
-    if (currentMonthExpenses === 0) return 0;
+  const averageDailyMetric = useMemo(() => {
+    if (transactions.length === 0) return { expense: 0, income: 0 };
     const today = new Date();
     const daysInMonthSoFar = getDate(today);
-    return currentMonthExpenses / daysInMonthSoFar;
-  }, [currentMonthExpenses]);
+    if (daysInMonthSoFar === 0) return { expense: 0, income: 0 }; // Avoid division by zero
+    
+    return {
+      expense: currentMonthExpenses / daysInMonthSoFar,
+      income: currentMonthIncome / daysInMonthSoFar,
+    }
+  }, [currentMonthExpenses, currentMonthIncome, transactions]);
 
   const getGoalProgress = () => {
     if (monthlyGoal === null || monthlyGoal <= 0) return 0;
@@ -186,8 +201,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-headline font-bold text-sm">Receita Total</CardTitle>
             <TrendingUp className="h-5 w-5 text-primary" />
@@ -197,7 +212,7 @@ export default function DashboardPage() {
             {transactions.filter(t => t.type === 'income').length === 0 && <p className="text-xs text-muted-foreground">Nenhuma receita registrada</p>}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-headline font-bold text-sm">Despesa Total</CardTitle>
             <TrendingDown className="h-5 w-5 text-destructive" />
@@ -207,7 +222,7 @@ export default function DashboardPage() {
             {transactions.filter(t => t.type === 'expense').length === 0 && <p className="text-xs text-muted-foreground">Nenhuma despesa registrada</p>}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-headline font-bold text-sm">Saldo Atual</CardTitle>
             <Activity className="h-5 w-5 text-accent" />
@@ -219,13 +234,23 @@ export default function DashboardPage() {
             {transactions.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma transação registrada</p>}
           </CardContent>
         </Card>
-        <Card>
+         <Card className="lg:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-headline font-bold text-sm">Receita Média Diária</CardTitle>
+            <BarChartHorizontal className="h-5 w-5 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-body text-green-600">{CURRENCY_SYMBOL}{averageDailyMetric.income.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">Média para o mês atual</p>
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-headline font-bold text-sm">Despesa Média Diária</CardTitle>
             <CalendarDays className="h-5 w-5 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-body text-yellow-600">{CURRENCY_SYMBOL}{averageDailyExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="text-2xl font-bold font-body text-yellow-600">{CURRENCY_SYMBOL}{averageDailyMetric.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <p className="text-xs text-muted-foreground">Média para o mês atual</p>
           </CardContent>
         </Card>
@@ -324,3 +349,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
