@@ -122,3 +122,39 @@ export function deleteStoredTransaction(transactionId: string): boolean {
     return false;
   }
 }
+
+/**
+ * Deletes multiple transactions by their IDs from localStorage.
+ * @param {string[]} transactionIds An array of transaction IDs to delete.
+ * @returns {boolean} True if deletion was successful, false otherwise.
+ */
+export function deleteStoredTransactions(transactionIds: string[]): boolean {
+  if (typeof window === 'undefined' || transactionIds.length === 0) {
+    return false;
+  }
+  try {
+    const existingTransactions = getStoredTransactions();
+    const idsToDeleteSet = new Set(transactionIds);
+    
+    const updatedTransactions = existingTransactions.filter(tx => !idsToDeleteSet.has(tx.id));
+
+    if (updatedTransactions.length === existingTransactions.length) {
+      // No transactions were found to delete
+      return false;
+    }
+
+    storeTransactions(updatedTransactions);
+
+    const numDeleted = existingTransactions.length - updatedTransactions.length;
+    addLog({
+      action: 'DELETE',
+      entity: 'TRANSACTION',
+      description: `${numDeleted} transaçõe(s) foram excluídas em massa.`,
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting multiple transactions from localStorage:', error);
+    return false;
+  }
+}

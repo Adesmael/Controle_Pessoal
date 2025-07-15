@@ -1,12 +1,13 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import IncomeForm from '@/components/forms/IncomeForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Transaction } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
@@ -23,13 +24,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getStoredTransactions, addStoredTransaction, deleteStoredTransaction } from '@/lib/transactionStorage';
+import { getStoredTransactions, addStoredTransaction, deleteStoredTransactions } from '@/lib/transactionStorage';
 
 export default function IncomePage() {
   const [incomes, setIncomes] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const { toast } = useToast();
+
+  const isAllSelected = useMemo(() => incomes.length > 0 && selectedIds.size === incomes.length, [incomes, selectedIds]);
 
   useEffect(() => {
     const loadIncomes = () => {
@@ -38,6 +42,14 @@ export default function IncomePage() {
       setLoading(false);
     };
     loadIncomes();
+     const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'financialApp_transactions') {
+        loadIncomes();
+        setSelectedIds(new Set()); 
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const handleIncomeAdded = (newIncomeData: Omit<Transaction, 'id' | 'type' | 'created_at'>) => {
@@ -57,27 +69,44 @@ export default function IncomePage() {
     }
   };
 
-  const openDeleteDialog = (transaction: Transaction) => {
-    setTransactionToDelete(transaction);
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      const allIds = new Set(incomes.map(i => i.id));
+      setSelectedIds(allIds);
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelectedIds = new Set(selectedIds);
+    if (checked) {
+      newSelectedIds.add(id);
+    } else {
+      newSelectedIds.delete(id);
+    }
+    setSelectedIds(newSelectedIds);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!transactionToDelete) return;
-    const success = deleteStoredTransaction(transactionToDelete.id);
+    if (selectedIds.size === 0) return;
+    const idsToDelete = Array.from(selectedIds);
+    const success = deleteStoredTransactions(idsToDelete);
     if (success) {
-      setIncomes((prevIncomes) => prevIncomes.filter(inc => inc.id !== transactionToDelete.id));
+      setIncomes((prevIncomes) => prevIncomes.filter(inc => !idsToDelete.includes(inc.id)));
       toast({
-        title: "Receita Excluída!",
-        description: `A receita "${transactionToDelete.description}" foi removida do armazenamento local.`,
+        title: `${idsToDelete.length} Receita(s) Excluída(s)!`,
+        description: 'As receitas selecionadas foram removidas do armazenamento local.',
       });
+      setSelectedIds(new Set());
     } else {
       toast({
         title: "Erro ao Excluir",
-        description: "Não foi possível excluir a receita do armazenamento local.",
+        description: "Não foi possível excluir as receitas do armazenamento local.",
         variant: "destructive",
       });
     }
-    setTransactionToDelete(null);
+    setIsDeleteAlertOpen(false);
   };
   
   if (loading) {
@@ -111,32 +140,49 @@ export default function IncomePage() {
           <CardDescription>Exibindo suas últimas receitas registradas localmente.</CardDescription>
         </CardHeader>
         <CardContent>
+            {selectedIds.size > 0 && (
+                <div className="mb-4 p-3 bg-muted rounded-md flex justify-between items-center">
+                    <span className="text-sm font-medium">{selectedIds.size} item(s) selecionado(s)</span>
+                    <Button variant="destructive" size="sm" onClick={() => setIsDeleteAlertOpen(true)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Excluir Selecionados
+                    </Button>
+                </div>
+            )}
           {incomes.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                     <TableHead className="w-[40px]">
+                        <Checkbox 
+                          checked={isAllSelected}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Selecionar todas as receitas"
+                        />
+                    </TableHead>
                     <TableHead className="font-bold">Descrição</TableHead>
                     <TableHead className="font-bold">Valor</TableHead>
                     <TableHead className="font-bold">Data</TableHead>
-                    <TableHead className="font-bold">Fonte</TableHead>
-                    <TableHead className="text-right font-bold">Ações</TableHead>
+                    <TableHead className="text-right font-bold">Fonte</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {incomes.map((income) => ( 
-                    <TableRow key={income.id}>
+                    <TableRow key={income.id} data-state={selectedIds.has(income.id) ? 'selected' : undefined}>
+                       <TableCell>
+                            <Checkbox 
+                              checked={selectedIds.has(income.id)}
+                              onCheckedChange={(checked) => handleSelectOne(income.id, !!checked)}
+                              aria-label={`Selecionar receita ${income.description}`}
+                            />
+                        </TableCell>
                       <TableCell className="font-medium">{income.description}</TableCell>
                       <TableCell className="text-primary"> 
                         {CURRENCY_SYMBOL}{Number(income.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>{format(new Date(income.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                      <TableCell>{income.source || '-'}</TableCell>
-                      <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(income)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                      </TableCell>
+                      <TableCell className="text-right">{income.source || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -151,16 +197,16 @@ export default function IncomePage() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={!!transactionToDelete} onOpenChange={(isOpen) => { if(!isOpen) setTransactionToDelete(null)}}>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a receita "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} do armazenamento local?
+              Tem certeza que deseja excluir as {selectedIds.size} receitas selecionadas do armazenamento local? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsDeleteAlertOpen(false)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>

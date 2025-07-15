@@ -1,13 +1,14 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ExpenseForm from '@/components/forms/ExpenseForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Transaction, ExpenseCategory } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
@@ -24,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getStoredTransactions, addStoredTransaction, deleteStoredTransaction } from '@/lib/transactionStorage';
+import { getStoredTransactions, addStoredTransaction, deleteStoredTransaction, deleteStoredTransactions } from '@/lib/transactionStorage';
 import { getStoredExpenseCategories } from '@/lib/categoryStorage';
 import { getIcon } from '@/lib/iconMap';
 
@@ -32,8 +33,11 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Transaction[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const { toast } = useToast();
+
+  const isAllSelected = useMemo(() => expenses.length > 0 && selectedIds.size === expenses.length, [expenses, selectedIds]);
 
   useEffect(() => {
     const loadData = () => {
@@ -47,6 +51,7 @@ export default function ExpensesPage() {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'financialApp_transactions' || event.key === 'financialApp_expense_categories') {
         loadData();
+        setSelectedIds(new Set()); // Reset selection on external data change
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -70,29 +75,46 @@ export default function ExpensesPage() {
     }
   };
 
-  const openDeleteDialog = (transaction: Transaction) => {
-    setTransactionToDelete(transaction);
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      const allIds = new Set(expenses.map(e => e.id));
+      setSelectedIds(allIds);
+    } else {
+      setSelectedIds(new Set());
+    }
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!transactionToDelete) return;
-    const success = deleteStoredTransaction(transactionToDelete.id);
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelectedIds = new Set(selectedIds);
+    if (checked) {
+      newSelectedIds.add(id);
+    } else {
+      newSelectedIds.delete(id);
+    }
+    setSelectedIds(newSelectedIds);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedIds.size === 0) return;
+    const idsToDelete = Array.from(selectedIds);
+    const success = deleteStoredTransactions(idsToDelete);
     if (success) {
-      setExpenses((prevExpenses) => prevExpenses.filter(exp => exp.id !== transactionToDelete.id));
+      setExpenses(prevExpenses => prevExpenses.filter(exp => !idsToDelete.includes(exp.id)));
       toast({
-        title: "Despesa Excluída!",
-        description: `A despesa "${transactionToDelete.description}" foi excluída do armazenamento local.`,
+        title: `${idsToDelete.length} Despesa(s) Excluída(s)!`,
+        description: 'As despesas selecionadas foram removidas do armazenamento local.',
       });
+      setSelectedIds(new Set());
     } else {
       toast({
         title: "Erro ao Excluir",
-        description: "Não foi possível excluir a despesa do armazenamento local.",
+        description: "Não foi possível excluir as despesas selecionadas.",
         variant: "destructive",
       });
     }
-    setTransactionToDelete(null);
+    setIsDeleteAlertOpen(false);
   };
-
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -124,17 +146,32 @@ export default function ExpensesPage() {
           <CardDescription>Exibindo suas últimas despesas registradas localmente.</CardDescription>
         </CardHeader>
         <CardContent>
+          {selectedIds.size > 0 && (
+            <div className="mb-4 p-3 bg-muted rounded-md flex justify-between items-center">
+                <span className="text-sm font-medium">{selectedIds.size} item(s) selecionado(s)</span>
+                <Button variant="destructive" size="sm" onClick={() => setIsDeleteAlertOpen(true)}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir Selecionados
+                </Button>
+            </div>
+          )}
           {expenses.length > 0 ? (
              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px]">
+                        <Checkbox 
+                          checked={isAllSelected}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Selecionar todas as despesas"
+                        />
+                    </TableHead>
                     <TableHead className="font-bold">Descrição</TableHead>
                     <TableHead className="font-bold">Categoria</TableHead>
                     <TableHead className="font-bold">Tipo</TableHead>
                     <TableHead className="font-bold">Valor</TableHead>
-                    <TableHead className="font-bold">Data</TableHead>
-                    <TableHead className="text-right font-bold">Ações</TableHead>
+                    <TableHead className="text-right font-bold">Data</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -142,7 +179,14 @@ export default function ExpensesPage() {
                     const category = expenseCategories.find(cat => cat.value === expense.category);
                     const Icon = getIcon(category?.icon);
                     return (
-                      <TableRow key={expense.id}>
+                      <TableRow key={expense.id} data-state={selectedIds.has(expense.id) ? 'selected' : undefined}>
+                        <TableCell>
+                            <Checkbox 
+                              checked={selectedIds.has(expense.id)}
+                              onCheckedChange={(checked) => handleSelectOne(expense.id, !!checked)}
+                              aria-label={`Selecionar despesa ${expense.description}`}
+                            />
+                        </TableCell>
                         <TableCell className="font-medium">{expense.description}</TableCell>
                         <TableCell className="flex items-center">
                           <Icon className="h-5 w-5 mr-2 inline-block text-muted-foreground" />
@@ -158,12 +202,7 @@ export default function ExpensesPage() {
                         <TableCell className="text-destructive"> 
                           {CURRENCY_SYMBOL}{Number(expense.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
-                        <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                        <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(expense)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                        </TableCell>
+                        <TableCell className="text-right">{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       </TableRow>
                     );
                   })}
@@ -179,16 +218,16 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={!!transactionToDelete} onOpenChange={(isOpen) => { if(!isOpen) setTransactionToDelete(null)}}>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a despesa "{transactionToDelete?.description}" no valor de {CURRENCY_SYMBOL}{Number(transactionToDelete?.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} do armazenamento local?
+              Tem certeza que deseja excluir as {selectedIds.size} despesas selecionadas do armazenamento local? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsDeleteAlertOpen(false)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
