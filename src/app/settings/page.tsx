@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY } from '@/lib/constants';
+import { CURRENCY_SYMBOL, MONTHLY_SPENDING_GOAL_KEY, EXPENSE_CATEGORIES_STORAGE_KEY, INCOME_SOURCES_STORAGE_KEY } from '@/lib/constants';
 import { Label } from '@/components/ui/label';
-import { DollarSign, UploadCloud, AlertTriangle, Share2, List, Landmark } from 'lucide-react';
+import { DollarSign, UploadCloud, AlertTriangle, Share2, List, Landmark, Trash2, ShieldAlert } from 'lucide-react';
 import { getStoredTransactions, storeTransactions } from '@/lib/transactionStorage';
 import type { Transaction } from '@/types';
 import {
@@ -22,9 +22,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Link from 'next/link';
-import { addLog } from '@/lib/logStorage';
+import { addLog, clearAllLogs } from '@/lib/logStorage';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+
+const TRANSACTIONS_STORAGE_KEY = 'financialApp_transactions';
 
 export default function SettingsPage() {
   const [goal, setGoal] = useState<string>('');
@@ -33,6 +35,7 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [backupToImport, setBackupToImport] = useState<{ transactions: Transaction[]; monthlyGoal: number | null } | null>(null);
   const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
+  const [isClearDataAlertOpen, setIsClearDataAlertOpen] = useState(false);
 
   useEffect(() => {
     loadMonthlyGoal();
@@ -308,6 +311,40 @@ export default function SettingsPage() {
     }
   };
 
+  const handleClearAllData = () => {
+    try {
+      // Clear all relevant local storage items
+      localStorage.removeItem(TRANSACTIONS_STORAGE_KEY);
+      localStorage.removeItem(EXPENSE_CATEGORIES_STORAGE_KEY);
+      localStorage.removeItem(INCOME_SOURCES_STORAGE_KEY);
+      localStorage.removeItem(MONTHLY_SPENDING_GOAL_KEY);
+      clearAllLogs(); // This also clears its own storage item
+
+      // Dispatch storage events to notify other components/tabs
+      window.dispatchEvent(new StorageEvent('storage', { key: TRANSACTIONS_STORAGE_KEY }));
+      window.dispatchEvent(new StorageEvent('storage', { key: EXPENSE_CATEGORIES_STORAGE_KEY }));
+      window.dispatchEvent(new StorageEvent('storage', { key: INCOME_SOURCES_STORAGE_KEY }));
+      window.dispatchEvent(new StorageEvent('storage', { key: MONTHLY_SPENDING_GOAL_KEY }));
+      
+      // Reload the goal on this page
+      loadMonthlyGoal();
+
+      toast({
+        title: 'Dados Apagados!',
+        description: 'Todos os dados do aplicativo foram removidos com sucesso. As categorias foram redefinidas para o padrão.',
+      });
+    } catch (error) {
+      console.error("Erro ao limpar todos os dados:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível apagar todos os dados.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsClearDataAlertOpen(false);
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -424,6 +461,25 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card className="shadow-lg border-destructive/50">
+        <CardHeader>
+          <CardTitle className="font-headline text-xl flex items-center text-destructive">
+            <ShieldAlert className="mr-2 h-5 w-5" />
+            Zona de Perigo
+          </CardTitle>
+          <CardDescription>
+            Ações nesta área são permanentes e não podem ser desfeitas. Use com cuidado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="destructive" onClick={() => setIsClearDataAlertOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Limpar Todos os Dados
+          </Button>
+        </CardContent>
+      </Card>
+
+
       <AlertDialog open={isImportAlertOpen} onOpenChange={setIsImportAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -445,6 +501,31 @@ export default function SettingsPage() {
               className="bg-primary hover:bg-primary/90"
             >
               Sim, Importar Dados
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isClearDataAlertOpen} onOpenChange={setIsClearDataAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2 text-destructive" />
+              Confirmar Exclusão de Todos os Dados
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem certeza absoluta? Esta ação é <strong>permanente</strong> e <strong>irreversível</strong>. 
+              Todos os seus registros de transações, categorias, fontes, metas e histórico serão apagados. 
+              É recomendável exportar um backup antes de continuar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearAllData}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Sim, Apagar Tudo
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
