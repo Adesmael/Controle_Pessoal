@@ -13,15 +13,16 @@ workflows:
           pod install
       - name: Build iOS
         script: |
-          cd ios
-          xcodebuild -workspace App.xcworkspace \
+          xcodebuild -workspace ios/App.xcworkspace \
                      -scheme App \
                      -sdk iphoneos \
                      -configuration Release \
-                     -derivedDataPath build
+                     -derivedDataPath ios/build
     artifacts:
       - ios/build/Build/Products/Release-iphoneos/*.app
     publishing:
       email:
         recipients:
           - adiliofkis@gmail.com
+
+
