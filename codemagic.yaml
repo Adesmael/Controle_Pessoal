@@ -1,0 +1,25 @@
+workflows:
+  default-workflow:
+    name: Build React Native app
+    max_build_duration: 60
+    environment:
+      node: 16.20.0
+      xcode: latest
+      vars:
+        NODE_ENV: production
+    scripts:
+      - name: Instalar dependências
+        script: |
+          npm install
+          cd ios
+          pod install
+          cd ..
+      - name: Build Android
+        script: ./android/gradlew assembleRelease
+      - name: Build iOS
+        script: |
+          xcodebuild -workspace ios/SeuApp.xcworkspace -scheme SeuApp -sdk iphonesimulator -configuration Release
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - ios/build/**/*.app
+
