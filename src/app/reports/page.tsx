@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
-import { TrendingUp, TrendingDown, Activity, Loader2, FileSpreadsheet, CalendarIcon, FilterX, Check, ChevronsUpDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Loader2, FileSpreadsheet, CalendarIcon, FilterX, Check, ChevronsUpDown, Download } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -27,6 +27,13 @@ import { getStoredTransactions } from '@/lib/transactionStorage';
 import { getStoredExpenseCategories } from '@/lib/categoryStorage';
 import { getStoredIncomeSources } from '@/lib/incomeSourceStorage';
 import { getIcon } from '@/lib/iconMap';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 const typeFilterOptions = [
   { value: 'all', label: 'Todas' },
@@ -209,6 +216,19 @@ export default function ReportsPage() {
     setDisplayedTransactions(allTransactions); 
   };
 
+  const getDataToExport = () => {
+    return displayedTransactions.map(transaction => ({
+      'Data': format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR }),
+      'Descrição': transaction.description,
+      'Tipo': transaction.type === 'income' ? 'Receita' : 'Despesa',
+      'Tipo de Despesa': transaction.type === 'expense' ? (transaction.expenseSubtype === 'fixed' ? 'Fixa' : 'Variável') : '',
+      'Categoria/Fonte': transaction.type === 'expense'
+        ? (expenseCategories.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
+        : (incomeSources.find(src => src.value === transaction.source)?.label || transaction.source || '-'),
+      'Valor': transaction.amount
+    }));
+  };
+
   const handleExportToExcel = () => {
     if (!displayedTransactions.length) {
       toast({
@@ -219,17 +239,7 @@ export default function ReportsPage() {
       return;
     }
 
-    const dataToExport = displayedTransactions.map(transaction => ({
-      'Data': format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR }),
-      'Descrição': transaction.description,
-      'Tipo': transaction.type === 'income' ? 'Receita' : 'Despesa',
-      'Tipo de Despesa': transaction.type === 'expense' ? (transaction.expenseSubtype === 'fixed' ? 'Fixa' : 'Variável') : '',
-      'Categoria/Fonte': transaction.type === 'expense'
-        ? (expenseCategories.find(cat => cat.value === transaction.category)?.label || transaction.category || '-')
-        : (transaction.source || '-'),
-      'Valor': transaction.amount
-    }));
-
+    const dataToExport = getDataToExport();
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     worksheet['!cols'] = [
       { wch: 12 }, { wch: 40 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 15 }
@@ -248,6 +258,40 @@ export default function ReportsPage() {
     toast({
       title: 'Exportação Concluída',
       description: 'O arquivo transacoes_fluxo_financeiro.xlsx foi baixado.',
+    });
+  };
+  
+  const handleExportToCSV = () => {
+    if (!displayedTransactions.length) {
+      toast({
+        title: 'Nenhuma transação',
+        description: 'Não há transações locais para exportar com os filtros atuais.',
+        variant: 'default'
+      });
+      return;
+    }
+
+    const dataToExport = getDataToExport();
+    const csvContent = [
+      Object.keys(dataToExport[0]).join(';'), // Cabeçalho com ponto e vírgula
+      ...dataToExport.map(row => 
+        Object.values(row).map(value => 
+          `"${String(value).replace(/"/g, '""')}"` // Aspas em todos os campos para segurança
+        ).join(';')
+      )
+    ].join('\n');
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel compatibility
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'transacoes_fluxo_financeiro.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({
+      title: 'Exportação Concluída',
+      description: 'O arquivo transacoes_fluxo_financeiro.csv foi baixado.',
     });
   };
 
@@ -570,10 +614,24 @@ export default function ReportsPage() {
               {transactionListDescription}
             </CardDescription>
           </div>
-          <Button onClick={handleExportToExcel} variant="outline" className="w-full sm:w-auto">
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Exportar para Excel
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Download className="mr-2 h-4 w-4" />
+                Exportar Dados
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleExportToExcel}>
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
+                <span>Exportar para Excel (.xlsx)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportToCSV}>
+                 <FileSpreadsheet className="mr-2 h-4 w-4 text-blue-600" />
+                <span>Exportar para CSV (.csv)</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </CardHeader>
         <CardContent>
           {displayedTransactions.length > 0 ? (
@@ -638,5 +696,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
