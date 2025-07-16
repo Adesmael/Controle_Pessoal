@@ -168,7 +168,7 @@ export default function SettingsPage() {
           const result = await Filesystem.writeFile({
             path: fileName,
             data: jsonString,
-            directory: Directory.Downloads,
+            directory: Directory.Documents,
             encoding: Encoding.UTF8,
           });
           toast({
