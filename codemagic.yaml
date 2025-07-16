@@ -1,23 +1,26 @@
 workflows:
-  build-ios:
-    name: Build iOS app
-    max_build_duration: 60
+  ios-capacitor-build:
+    name: Build iOS app with Capacitor
     environment:
-      node: 16.20.0
+      node: 18.20.0
       xcode: latest
-      cocoapods: default
-      vars:
-        NODE_ENV: production
     scripts:
       - name: Instalar dependências
         script: |
           npm install
+          npx cap sync ios
           cd ios
           pod install
-      - name: Build iOS
+      - name: Controle Pessoal
         script: |
-          xcodebuild -workspace ios/SeuApp.xcworkspace -scheme SeuApp -sdk iphoneos -configuration Release
+          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphoneos -configuration Release
     artifacts:
       - ios/build/**/*.app
+    publishing:
+      email:
+        recipients:
+          - adiliofkis@gmail.com
+
+
 
 
