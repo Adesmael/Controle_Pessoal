@@ -32,4 +32,4 @@ export const INCOME_SOURCES_STORAGE_KEY = 'financialApp_income_sources';
 export const GOOGLE_API_KEY_MISSING_ERROR = "Erro: A chave de API do Google (GOOGLE_API_KEY) não foi configurada ou é inválida. Verifique seu arquivo .env.local e reinicie os servidores (Next.js e Genkit) ou verifique o console do servidor Genkit para mais detalhes.";
 
 
-export { Settings as SettingsIcon };
+
