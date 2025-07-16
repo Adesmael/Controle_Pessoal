@@ -11,16 +11,17 @@ workflows:
           npx cap sync ios
           cd ios
           pod install
-      - name: Controle Pessoal
+      - name: Build iOS
         script: |
-          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphoneos -configuration Release
+          cd ios
+          xcodebuild -workspace App.xcworkspace \
+                     -scheme App \
+                     -sdk iphoneos \
+                     -configuration Release \
+                     -derivedDataPath build
     artifacts:
-      - ios/build/**/*.app
+      - ios/build/Build/Products/Release-iphoneos/*.app
     publishing:
       email:
         recipients:
           - adiliofkis@gmail.com
-
-
-
-
