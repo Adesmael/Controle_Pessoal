@@ -2,27 +2,39 @@ workflows:
   ios-capacitor-build:
     name: Build iOS app with Capacitor
     environment:
-      node: 18.20.0
+      node: 20 # Usando uma versão LTS do Node.js
       xcode: latest
+      cocoapods: default
     scripts:
       - name: Instalar dependências
         script: |
           npm install
-          npx cap sync ios
-          cd ios
-          pod install
-      - name: Build iOS
+      - name: Build do App Web e Sincronização com Capacitor
         script: |
-          xcodebuild -workspace ios/App.xcworkspace \
+          npm run build:mobile
+      - name: Instalar dependências do iOS (CocoaPods)
+        script: |
+          cd ios/App && pod install && cd ../..
+      - name: Build do App iOS
+        script: |
+          # NOTA: Este passo requer que a assinatura de código esteja configurada no Codemagic.
+          # Você precisará fazer upload de seus certificados e perfis de provisionamento.
+          xcodebuild -workspace ios/App/App.xcworkspace \
                      -scheme App \
                      -sdk iphoneos \
                      -configuration Release \
-                     -derivedDataPath ios/build
+                     -allowProvisioningUpdates \
+                     archive \
+                     -archivePath $CM_BUILD_DIR/FluxoFinanceiro.xcarchive \
+                     # -Passe seu team id aqui CODE_SIGN_IDENTITY="..." DEVELOPMENT_TEAM="..."
+
+          xcodebuild -exportArchive \
+                     -archivePath $CM_BUILD_DIR/FluxoFinanceiro.xcarchive \
+                     -exportPath $CM_BUILD_DIR/build/ios \
+                     -exportOptionsPlist $CM_BUILD_DIR/ios/App/exportOptions.plist
     artifacts:
-      - ios/build/Build/Products/Release-iphoneos/*.app
+      - $CM_BUILD_DIR/build/ios/*.ipa
     publishing:
       email:
         recipients:
           - adiliofkis@gmail.com
-
-
